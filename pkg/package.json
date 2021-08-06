@@ -1,0 +1,14 @@
+{
+  "name": "dissonance-wasm",
+  "collaborators": [
+    "euwbah <euwbah@gmail.com>"
+  ],
+  "version": "0.1.0",
+  "files": [
+    "dissonance_wasm_bg.wasm",
+    "dissonance_wasm.js",
+    "dissonance_wasm.d.ts"
+  ],
+  "browser": "dissonance_wasm.js",
+  "types": "dissonance_wasm.d.ts"
+}
