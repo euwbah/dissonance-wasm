@@ -48,7 +48,7 @@ pub fn calculate_dissonance(freqs: &[f64]) -> f64 {
             let (f1, a1) = pairs[i];
             let (f2, a2) = pairs[j];
 
-            let spl_amplitude_of_interference = a1.max(a2);
+            let spl_amplitude_of_interference = a1.min(a2);
             let s = D_MAX / (S_1 * f1 + S_2);
             let x = s * (f2 - f1); // f2 > f1 is a must
             let d = (-A * x).exp() - (-B * x).exp();

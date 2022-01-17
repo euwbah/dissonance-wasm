@@ -9,6 +9,7 @@
     "dissonance_wasm.js",
     "dissonance_wasm.d.ts"
   ],
-  "browser": "dissonance_wasm.js",
-  "types": "dissonance_wasm.d.ts"
+  "module": "dissonance_wasm.js",
+  "types": "dissonance_wasm.d.ts",
+  "sideEffects": false
 }
