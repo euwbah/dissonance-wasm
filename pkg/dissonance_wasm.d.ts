@@ -1,27 +1,30 @@
-/* tslint:disable */
-/* eslint-disable */
-/**
-*/
-export function greet(): void;
-/**
-* @param {Float64Array} freqs
-* @returns {number}
-*/
-export function calculateDissonance(freqs: Float64Array): number;
-/**
-* @param {Array<any>} matrix
-* @returns {Int32Array}
-*/
-export function dissonanceMatrix(matrix: Array<any>): Int32Array;
-/**
-* @param {Float64Array} freqs
-* @returns {number}
-*/
-export function findOffender(freqs: Float64Array): number;
+declare namespace wasm_bindgen {
+	/* tslint:disable */
+	/* eslint-disable */
+	/**
+	*/
+	export function greet(): void;
+	/**
+	* @param {Float64Array} freqs
+	* @returns {number}
+	*/
+	export function calculateDissonance(freqs: Float64Array): number;
+	/**
+	* @param {Array<any>} matrix
+	* @returns {Int32Array}
+	*/
+	export function dissonanceMatrix(matrix: Array<any>): Int32Array;
+	/**
+	* @param {Float64Array} freqs
+	* @returns {number}
+	*/
+	export function findOffender(freqs: Float64Array): number;
+	
+}
 
-export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
+declare type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
-export interface InitOutput {
+declare interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly greet: () => void;
   readonly calculateDissonance: (a: number, b: number) => number;
@@ -40,4 +43,4 @@ export interface InitOutput {
 *
 * @returns {Promise<InitOutput>}
 */
-export default function init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>;
+declare function wasm_bindgen (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>;
