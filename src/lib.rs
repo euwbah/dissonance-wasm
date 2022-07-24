@@ -1,8 +1,6 @@
 mod utils;
 
 use wasm_bindgen::prelude::*;
-use ndarray::Array1;
-use std::cmp::max;
 use js_sys::Array;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
