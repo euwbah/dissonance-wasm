@@ -1,8 +1,8 @@
 [package]
 name = "dissonance-wasm"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["euwbah <euwbah@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 default = ["console_error_panic_hook"]
 
 [dependencies]
-wasm-bindgen = "0.2.63"
+wasm-bindgen = "0.2.99"
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
@@ -26,9 +26,15 @@ console_error_panic_hook = { version = "0.1.6", optional = true }
 # Unfortunately, `wee_alloc` requires nightly Rust when targeting wasm for now.
 wee_alloc = { version = "0.4.5", optional = true }
 
-ndarray = "0.15.3"
+ndarray = "0.16.1"
 
 js-sys = "0.3.52"
+
+compute = "0.2.3"
+
+termtree = "0.5"
+
+rand = "0.8"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"
