@@ -325,12 +325,13 @@ mod tests {
             "sethares_roughness_{NUM_HARMS_TONALITY}_{HARMS_ADD_OCTAVES_TONALITY}_{AMP_MULT_TONALITY}.csv"
         ))
         .unwrap();
-        file.write_all(b"cents,roughness,scaled,normalized\n").unwrap();
+        file.write_all(b"cents,roughness,scaled mult,scaled add,normalized\n").unwrap();
         for cents in 0..=10800 {
             let roughness = dyad_lookup.sethares_roughness[cents];
-            let scaled = dyad_lookup.sethares_mult[cents];
+            let scaled_mult = dyad_lookup.sethares_mult[cents];
+            let scaled_add = dyad_lookup.sethares_add[cents];
             let normalized = dyad_lookup.sethares_normalized_roughness[cents];
-            let line = format!("{},{},{},{}\n", cents, roughness, scaled, normalized);
+            let line = format!("{},{},{},{},{}\n", cents, roughness, scaled_mult, scaled_add, normalized);
             file.write_all(line.as_bytes()).unwrap();
         }
     }

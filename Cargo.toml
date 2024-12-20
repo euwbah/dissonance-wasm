@@ -36,6 +36,10 @@ termtree = "0.5"
 
 rand = "0.8"
 
+binary-heap-plus = "0.5"
+
+get-size2 = { version = "^0.1", features = ["derive"]}
+
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"
 

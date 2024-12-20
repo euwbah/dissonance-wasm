@@ -1,9 +1,11 @@
 //! Polyadic dissonance & tonicity of notes.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
-use js_sys::Math::sqrt;
+use binary_heap_plus::BinaryHeap;
+use rand::random;
 use termtree::Tree;
+use get_size2::GetSize;
 
 use crate::{
     dyad_lookup::{DyadLookup, RoughnessType, TonicityLookup},
@@ -18,7 +20,7 @@ const PRINT_GRAPH: bool = false;
 /// This should sum to 1.
 pub type Tonicities = Vec<f64>;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, GetSize)]
 pub struct Edge {
     pub from: usize,
     pub to: usize,
@@ -53,7 +55,8 @@ pub struct Edge {
     /// If this was the first edge added (from the root node), this should be 1.
     pub parent_edge_tonicity: f64,
 
-    /// This is the absolute edge tonicity multiplier for final dissonance calculation.
+    /// Absolute edge tonicity multiplier for final dissonance calculation. Equal to the parent's
+    /// (`from`) last added edge's `edge_tonicity_abs`.
     pub parent_edge_tonicity_abs: f64,
 
     /// The relative single note tonicity of `from`, at the time before traversal of this new edge,
@@ -74,7 +77,12 @@ pub struct Edge {
 }
 
 impl Edge {
-    /// The relative edge contribution to dissonance without context.
+    /// The relative edge contribution to dissonance without edge_tonicity context, only using
+    /// pairwise dyadic tonicity.
+    ///
+    /// `rel_dyadic_tonicity_sum`: The sum of all relative dyadic note tonicities values in the
+    /// graph, which is required to normalize the relative dyadic tonicity into an absolute dyadic
+    /// tonicity that sums to 1.
     ///
     /// `num_visited`: number of notes visited so far in this traversal.
     pub fn edge_contribution_relative(
@@ -106,9 +114,34 @@ impl Edge {
     ///
     /// `num_visited`: The number of notes visited so far in this traversal, which is required to
     /// obtain the expected relative dyadic tonicity.
-    pub fn edge_contribution(&self, rel_dyadic_tonicity_sum: f64, num_visited: usize) -> f64 {
+    ///
+    /// `parent_edge_tonicity_sum`: The sum of `parent_edge_tonicity_abs` for all edges in the
+    /// traversal (plus 1)
+    pub fn edge_contribution(
+        &self,
+        rel_dyadic_tonicity_sum: f64,
+        num_visited: usize,
+        parent_edge_tonicity_sum: f64,
+    ) -> f64 {
+        // This function MUST NOT return NaN or Inf.
         self.edge_contribution_relative(rel_dyadic_tonicity_sum, num_visited)
             * self.parent_edge_tonicity_abs
+            / parent_edge_tonicity_sum
+    }
+
+    /// The tonicity score only considering dyadic tonicity. The result is normalized from 0 to 1.
+    pub fn tonicity_score_dyadic(&self, rel_dyadic_tonicity_sum: f64) -> f64 {
+        self.parent_rel_dyadic_tonicity / rel_dyadic_tonicity_sum
+    }
+
+    /// Tonicity score of dyadic tonicity + edge tonicity.
+    pub fn tonicity_score(
+        &self,
+        rel_dyadic_tonicity_sum: f64,
+        parent_edge_tonicity_sum: f64,
+    ) -> f64 {
+        self.parent_edge_tonicity_abs / parent_edge_tonicity_sum * self.parent_rel_dyadic_tonicity
+            / rel_dyadic_tonicity_sum
     }
 }
 
@@ -203,6 +236,9 @@ pub struct Traversal {
 
     /// Sum of all relative dyadic note tonicities values in the graph.
     pub note_tonicities_sum: f64,
+
+    /// Sum of `parent_edge_tonicity_abs` for all edges in the traversal.
+    pub parent_edge_tonicities_sum: f64,
 }
 
 /// The result of a dissonance calculation.
@@ -246,7 +282,11 @@ pub struct Dissonance {
     // explicitly required.
     /// Entropy (bits) of the distribution of roughness contributed by each traversal, calculated
     /// for each note.
-    pub entropy_per_note: Vec<f64>,
+    pub diss_entropy_per_note: Vec<f64>,
+
+    /// Entropy (bits) of the distribution of tonicity scores contributed by each traversal,
+    /// calculated for each note.
+    pub tonicity_entropy_per_note: Vec<f64>,
 
     /// Entropy (bits) of the distribution of roughness scores between notes after tabulating
     /// all traversals.
@@ -266,6 +306,27 @@ pub struct Dissonance {
     /// Dissonances contributed by each note, influenced only by dyadic tonicities and traversal
     /// order considering edge tonicity. Analogous to `avg_diss_per_traversal_per_note`.
     pub diss_per_note_dyadic_only: Vec<f64>,
+}
+
+/// Pruning method for reducing computations on graph traversal.
+#[derive(Clone, Copy)]
+pub enum PruneMethod {
+    /// Prune away edges with high dissonance contributions.
+    PrioritizeMinDiss,
+    /// Prune away edges that contribute the least tonicity.
+    PrioritizeMaxTonicity,
+    /// Prune randomly
+    Random,
+}
+
+impl Display for PruneMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PruneMethod::PrioritizeMinDiss => write!(f, "PrioritizeMinDiss"),
+            PruneMethod::PrioritizeMaxTonicity => write!(f, "PrioritizeMaxTonicity"),
+            PruneMethod::Random => write!(f, "Random"),
+        }
+    }
 }
 
 /// Polyadic dissonance using a graph.
@@ -302,7 +363,8 @@ pub struct Dissonance {
 /// starting notes should admit the same number of completed traversals, so if this number doesn't
 /// divide the number of notes in the chords evenly, then this number will be rounded up. If there
 /// are multiple candidate notes in `candidate_freqs`, the actual number of completed traversals
-/// will be multiplied by the number of candidates.
+/// will be multiplied by the number of candidates. Changing this value does not change the number
+/// of intermediate traversals, so it may not have a large effect on the final result.
 ///
 /// If all of the above computation limits are set arbitrarily high, one can expect N! * (N-1)! * M
 /// unique spanning tree traversals of the graph.
@@ -323,6 +385,7 @@ pub fn graph_dissonance(
     max_attempts_per_trv: usize,
     max_attempts_per_iteration: usize,
     target_num_traversals: usize,
+    prune_method: PruneMethod,
 ) -> Vec<Dissonance> {
     assert!(
         tonicity_context.len() == freqs.len(),
@@ -342,7 +405,8 @@ pub fn graph_dissonance(
             num_traversals: 0,
             num_completed_traversals: 0,
             num_incomplete_traversals: 0,
-            entropy_per_note: vec![0.0; num_notes],
+            diss_entropy_per_note: vec![0.0; num_notes],
+            tonicity_entropy_per_note: vec![0.0; num_notes],
             entropy_between_notes_pre_tonicity: 0.0,
             note_tonicities_target_entropy: 0.0,
             tonicity_context_entropy: 0.0,
@@ -401,7 +465,7 @@ pub fn graph_dissonance(
     let mut traversals = vec![];
 
     // Create lookup table for all dyads.
-    let heuristic_tonicities = dyadic_tonicity_candidate_freqs(&cents, &candidate_cents);
+    let heuristic_tonicities = dyadic_tonicity_heur(&cents, &candidate_cents);
     let dyad_tonics = heuristic_tonicities.tonicity_map;
     let dyad_roughs = heuristic_tonicities.add_roughness_map; // use additive roughness.
     let cand_tonicity_map = heuristic_tonicities.cand_tonicity_map;
@@ -438,6 +502,7 @@ pub fn graph_dissonance(
                 edges_parents: HashMap::new(),
                 note_tonicities: from_note_tonicities,
                 note_tonicities_sum: 1.0,
+                parent_edge_tonicities_sum: 0.0,
             })
         }
     }
@@ -452,9 +517,12 @@ pub fn graph_dissonance(
     loop {
         iterations += 1;
         print!("Iteration {iterations}: ");
-        // The list of the next iteration's traversals.
-        // The f64 is the dissonance of the
-        let mut new_traversals: Vec<(Traversal, f64)> = vec![];
+        // Contains traversals for the next iteration to process.
+        //
+        // The f64 in the tuple is a key such that higher values denotes the traversals to prune
+        // first.
+        let mut new_traversals =
+            BinaryHeap::new_by(|a: &(Traversal, f64), b| a.1.partial_cmp(&b.1).unwrap());
 
         let mut continue_loop = false;
 
@@ -467,7 +535,44 @@ pub fn graph_dissonance(
 
             num_traversals += 1;
 
-            let mut candidates = vec![];
+            // Heap comparators should be such that candidates.into_sorted_vec() will put the
+            // edges to prune at the end of the vec.
+            let mut candidates =
+                match prune_method {
+                    PruneMethod::PrioritizeMinDiss => {
+                        // puts min diss at start of the vec
+                        BinaryHeap::new_by(Box::new(|a: &Edge, b: &Edge| {
+                            a.edge_contribution(
+                                t.note_tonicities_sum,
+                                iterations,
+                                t.parent_edge_tonicities_sum,
+                            )
+                            .partial_cmp(&b.edge_contribution(
+                                t.note_tonicities_sum,
+                                iterations,
+                                t.parent_edge_tonicities_sum,
+                            ))
+                            .unwrap()
+                        })
+                            as Box<dyn Fn(&Edge, &Edge) -> std::cmp::Ordering>)
+                    }
+                    PruneMethod::PrioritizeMaxTonicity => {
+                        // puts max tonicity at start of vec.
+                        BinaryHeap::new_by(Box::new(|a: &Edge, b: &Edge| {
+                            b.tonicity_score(t.note_tonicities_sum, t.parent_edge_tonicities_sum)
+                                .partial_cmp(&a.tonicity_score(
+                                    t.note_tonicities_sum,
+                                    t.parent_edge_tonicities_sum,
+                                ))
+                                .unwrap()
+                        })
+                            as Box<dyn Fn(&Edge, &Edge) -> std::cmp::Ordering>)
+                    }
+                    PruneMethod::Random => BinaryHeap::new_by(Box::new(|_: &Edge, _: &Edge| {
+                        random::<u32>().cmp(&random())
+                    })
+                        as Box<dyn Fn(&Edge, &Edge) -> std::cmp::Ordering>),
+                };
             for from_idx in 0..num_notes {
                 if (t.remaining_verts & (1 << from_idx)) != 0 {
                     // must come from a vertex that is already visited.
@@ -539,39 +644,46 @@ pub fn graph_dissonance(
                 }
             }
 
-            if candidates.len() > max_attempts_per_trv {
-                // TODO: work out pruning strategy.
+            // TODO: work out pruning strategy.
 
-                // The current strategy is to keep edges with minimum edge_contribution, but that
-                // skews the results because the more 'tonic' nodes will have more traversals.
-                //
-                // Other strategies to try include:
-                //
-                // - Random pruning.
-                //
-                // - Prune edges with minimum and maximum edge contribution first.
-                //
-                // - Prune edges with average edge contribution first.
-                //
-                // - train reinforcement learning model to choose which edges to prune, using
-                //   full-traversal output as loss function.
-                //
+            // The current strategy is to keep edges with minimum edge_contribution, but that
+            // skews the results because the more 'tonic' nodes will have more traversals.
+            //
+            // Other strategies to try include:
+            //
+            // - Random pruning.
+            //
+            // - Prune edges with minimum and maximum edge contribution first.
+            //
+            // - Prune edges with average edge contribution first.
+            //
+            // - train reinforcement learning model to choose which edges to prune, using
+            //   full-traversal output as loss function.
+            //
 
-                // TODO: If we can get this pruning method to work, we store candidates in a max-heap
-                // so we don't have to sort the whole thing.
-                candidates.sort_by(|a, b| {
-                    a.edge_contribution(t.note_tonicities_sum, iterations)
-                        .partial_cmp(&b.edge_contribution(t.note_tonicities_sum, iterations))
-                        .unwrap()
-                });
-                candidates.truncate(max_attempts_per_trv);
-            }
+            // TODO: If we can get this pruning method to work, we store candidates in a max-heap
+            // so we don't have to sort the whole thing.
+
+            let mut candidates = if candidates.len() > max_attempts_per_trv {
+                let mut c = if let PruneMethod::Random = prune_method {
+                    candidates.into_vec()
+                } else {
+                    candidates.into_sorted_vec()
+                };
+                c.truncate(max_attempts_per_trv);
+                c
+            } else {
+                candidates.into_vec()
+            };
 
             // Divide by sum of reciprocals of roughness to normalize.
-            let sum_edge_tonicities: f64 = candidates.iter().map(|x| x.roughness).sum();
+            let sum_edge_tonicities: f64 = candidates.iter().map(|x| 1.0 / x.roughness).sum();
 
             for c in candidates.iter_mut() {
-                c.edge_tonicity = c.roughness / sum_edge_tonicities;
+                // for each iteration, the sum of edge_tonicity is 1, which is relative to edges
+                // between unvisited nodes at this point in the traversal, but the actual sum of all
+                // parent_edge_tonicity_abs is not normalized.
+                c.edge_tonicity = (1.0 / c.roughness) / sum_edge_tonicities;
                 c.edge_tonicity_abs = c.edge_tonicity * c.parent_edge_tonicity_abs;
 
                 let mut new_traversal = t.clone();
@@ -594,6 +706,8 @@ pub fn graph_dissonance(
                 new_traversal.note_tonicities[c.to] = rel_dyadic_tonicity_to;
                 new_traversal.note_tonicities_sum += rel_dyadic_tonicity_to;
 
+                new_traversal.parent_edge_tonicities_sum += c.parent_edge_tonicity_abs;
+
                 if new_traversal.remaining_verts == 0 {
                     completed_traversals_per_candidate[new_traversal.candidate_idx]
                         .push(new_traversal.clone());
@@ -608,11 +722,23 @@ pub fn graph_dissonance(
                         print_tree(&new_traversal);
                     }
                 } else {
-                    let from_note_tonicity_sum = new_traversal.note_tonicities_sum;
-                    new_traversals.push((
-                        new_traversal,
-                        c.edge_contribution(from_note_tonicity_sum, iterations + 1),
-                    ));
+                    let from_note_tonicities_sum = new_traversal.note_tonicities_sum;
+                    let parent_edge_tonicities_sum = new_traversal.parent_edge_tonicities_sum;
+
+                    // The priority key has a higher value for traversals to be pruned first.
+                    let priority_key = match prune_method {
+                        PruneMethod::PrioritizeMinDiss => c.edge_contribution(
+                            from_note_tonicities_sum,
+                            iterations + 1,
+                            parent_edge_tonicities_sum,
+                        ),
+                        PruneMethod::PrioritizeMaxTonicity => {
+                            // negate tonicity score since we want max tonicity to be pruned last.
+                            -c.tonicity_score(from_note_tonicities_sum, parent_edge_tonicities_sum)
+                        }
+                        PruneMethod::Random => random::<f64>(),
+                    };
+                    new_traversals.push((new_traversal, priority_key));
 
                     // A new traversal with unvisited nodes was added, reason to continue.
                     continue_loop = true;
@@ -620,11 +746,14 @@ pub fn graph_dissonance(
             }
         }
 
+        let mut new_traversals = if let PruneMethod::Random = prune_method {
+            new_traversals.into_vec()
+        } else {
+            new_traversals.into_sorted_vec()
+        };
+
         if new_traversals.len() > max_attempts_per_iteration {
             // If too many traversal options in this iteration, prune them.
-
-            // TODO: work out pruning method. If sorting method works, use a max-heap to store new_traversals.
-            new_traversals.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
             new_traversals.truncate(max_attempts_per_iteration);
         }
 
@@ -662,18 +791,24 @@ pub fn graph_dissonance(
         // same)
         let normalizer = 1.0;
 
-        // Entropy of the distribution roughness over traversals for each starting note summing over its
-        // normalized roughness r, -r log2(r). To normalize, divide by sum of r and add
+        // Entropy of the distribution of roughness over traversals, calculated for each starting
+        // note, summing over roughness -r log2(r). To normalize, divide by sum of
+        // r and add
         //
         //   log2(sum of r).
         //
-        // Sum of r is just the diss_per_note before normalization.
-        let mut entropy_per_note = vec![0.0; num_notes];
+        // Sum of r = diss_per_note before normalization.
+        let mut diss_entropy_per_note = vec![0.0; num_notes];
+
+        // Sum over all traversals of dissonance scores per starting note
         let mut diss_per_note = vec![0.0; num_notes];
         let mut num_completed_traversals_per_note = vec![0; num_notes];
 
-        // Relative tonicity scores per note.
+        // Sum over all traversals of relative tonicity scores per note.
         let mut tonicity_scores_per_note: Tonicities = vec![0.0; num_notes];
+
+        // Entropy of the distribution of tonicity scores of each note over traversals.
+        let mut tonicity_entropy_per_note = vec![0.0; num_notes];
 
         // Tonicity scores calculated using only dyadic tonicities + traversal order, without
         // considering edge tonicity.
@@ -690,26 +825,38 @@ pub fn graph_dissonance(
             let mut diss_dyadic_only = 0.0;
             let mut tonicities_dyadic_only = vec![0.0; num_notes];
             for (_, e) in t.edges_parents.iter() {
-                diss += e.edge_contribution(t.note_tonicities_sum, num_notes);
-                tonicities[e.to] += e.parent_edge_tonicity_abs * e.parent_rel_dyadic_tonicity
-                    / t.note_tonicities_sum;
+                diss += e.edge_contribution(
+                    t.note_tonicities_sum,
+                    num_notes,
+                    t.parent_edge_tonicities_sum,
+                );
+                tonicities[e.to] +=
+                    e.tonicity_score(t.note_tonicities_sum, t.parent_edge_tonicities_sum);
 
                 diss_dyadic_only += e.edge_contribution_relative(t.note_tonicities_sum, num_notes);
-                tonicities_dyadic_only[e.to] +=
-                    e.parent_rel_dyadic_tonicity / t.note_tonicities_sum;
+                tonicities_dyadic_only[e.to] += e.tonicity_score_dyadic(t.note_tonicities_sum);
             }
             tonicities[t.start] += 1.0 / t.note_tonicities_sum; // the starting note has tonicity of 1.
             diss_per_note[t.start] += diss;
             num_completed_traversals_per_note[t.start] += 1;
-            tonicity_scores_per_note
-                .iter_mut()
-                .zip(tonicities.iter())
-                .for_each(|(a, b)| *a += *b * diss);
 
-            entropy_per_note[t.start] -= diss * diss.log2();
+            // TODO: figure out how to scale contribution of tonicity scores. By multiplying
+            // tonicity contribution by overall dissonance contribution of the traversal, we get the
+            // most difference between dissonance of major and minor triads (major diss < minor
+            // diss) If we divide by diss instead, we get minor diss < major diss, which is not what
+            // we want.
+            for idx in 0..num_notes {
+                let tonicity_contribution = tonicities[idx] * diss; // contribution of this traversal
+                tonicity_scores_per_note[idx] += tonicity_contribution;
+                tonicity_entropy_per_note[idx] -=
+                    tonicity_contribution * tonicity_contribution.log2();
+            }
+
+            diss_entropy_per_note[t.start] -= diss * diss.log2();
 
             tonicities_dyadic_only[t.start] += 1.0 / t.note_tonicities_sum;
             diss_per_note_dyadic_only[t.start] += diss_dyadic_only;
+
             ton_scores_dyadic_only
                 .iter_mut()
                 .zip(tonicities_dyadic_only.iter())
@@ -728,10 +875,17 @@ pub fn graph_dissonance(
             .map(|(d, n)| if *n != 0 { d / *n as f64 } else { 0.0 })
             .collect();
 
-        entropy_per_note
+        // normalize diss entropy since distribution of diss doesn't add up to 1.
+        diss_entropy_per_note
             .iter_mut()
             .zip(diss_per_note.iter())
             .for_each(|(entropy, diss)| *entropy = *entropy / diss + diss.log2());
+
+        // normalize tonicity entropy
+        tonicity_entropy_per_note
+            .iter_mut()
+            .zip(tonicity_scores_per_note.iter())
+            .for_each(|(entropy, ton)| *entropy = *entropy / ton + ton.log2());
 
         // This is the second attempt at calculating polyadic tonicity. This is done before
         // dissonance calculation to obtain the recursive tonicity first.
@@ -748,6 +902,10 @@ pub fn graph_dissonance(
         // in the traversal state.
 
         // TODO: Should we multiply tonicity scores by the pairwise heuristic as below?
+        //       If not, comment out the lines below.
+
+        // Without pairwise heuristic, the third of min and maj triads are given the most tonicity,
+        // which is not what we want.
         tonicity_scores_per_note
             .iter_mut()
             .zip(smoothed_tonicity_contexts[cand_idx].iter())
@@ -857,7 +1015,8 @@ pub fn graph_dissonance(
                 .iter()
                 .filter(|x| x.candidate_idx == cand_idx)
                 .count(),
-            entropy_per_note,
+            diss_entropy_per_note,
+            tonicity_entropy_per_note,
             entropy_between_notes_pre_tonicity,
             note_tonicities_target_entropy,
             tonicity_context_entropy,
@@ -938,6 +1097,7 @@ pub fn dyadic_tonicity(
     tonicities.iter().map(|x| x / sum).collect()
 }
 
+#[derive(Debug, Clone)]
 pub struct TonicityHeuristic {
     /// One list per note in `candidate_cents`, which contains the relative tonicities of all the existing
     /// notes and the particular new note.
@@ -1004,10 +1164,23 @@ pub struct TonicityHeuristic {
 /// If `cand_cents` is not provided, the return value will have a single value in `tonicities`,
 /// which is the tonicity of the notes in `cents` amongst themselves only.
 ///
-pub fn dyadic_tonicity_candidate_freqs(
-    cents: &[f64],
-    candidate_cents: &[f64],
-) -> TonicityHeuristic {
+pub fn dyadic_tonicity_heur(cents: &[f64], candidate_cents: &[f64]) -> TonicityHeuristic {
+    /// Function that scales the perception of tonicity by virtue of otonal/utonal dyadic tonicity
+    /// heuristic weighted by how likely it is to choose to hear that interval relation between two
+    /// note (modelled using roughness)
+    ///
+    /// TODO: figure out the best function for this.
+    fn heuristic_function(dyad_tonicity: f64, roughness: f64) -> (f64, f64) {
+        // (
+        //     dyad_tonicity.powf(roughness / 2.0),
+        //     (1.0 - dyad_tonicity).powf(roughness / 2.0),
+        // )
+        (
+            dyad_tonicity / roughness.powf(0.333),
+            (1.0 - dyad_tonicity) / roughness.powf(0.333),
+        )
+    }
+
     let mut tonicity_map = HashMap::new();
     let mut mult_roughness_map = HashMap::new();
     let mut add_roughness_map = HashMap::new();
@@ -1027,12 +1200,9 @@ pub fn dyadic_tonicity_candidate_freqs(
             let add_roughness =
                 DyadLookup::get_roughness(cents[hi_idx] - cents[lo_idx], RoughnessType::Additive);
 
-            // TODO: figure out the best function that balances raw pairwise tonicity scores and perceived roughness.
-
-            // tonicities[lower] += dyad_tonicity.powf(roughness / 2.0);
-            // tonicities[higher] += (1.0 - dyad_tonicity).powf(roughness / 2.0);
-            existing_tonicities[lo_idx] += dyad_tonicity / roughness.powf(0.333); // don't let roughness affect tonicity too much.
-            existing_tonicities[hi_idx] += (1.0 - dyad_tonicity) / roughness.powf(0.333);
+            let (lo_contrib, hi_contrib) = heuristic_function(dyad_tonicity, roughness);
+            existing_tonicities[lo_idx] += lo_contrib;
+            existing_tonicities[hi_idx] += hi_contrib;
             let bitmask = (1 << hi_idx) | (1 << lo_idx);
             // If i is higher, then dyad_tonicity is the probability of hearing the lower note j as tonic.
             // We want the probability of i.
@@ -1089,8 +1259,9 @@ pub fn dyadic_tonicity_candidate_freqs(
                 DyadLookup::get_roughness(hi_cents - lo_cents, RoughnessType::Multiplicative);
             let add_roughness =
                 DyadLookup::get_roughness(hi_cents - lo_cents, RoughnessType::Additive);
-            tonicities_per_candidate[cand_idx][lo_idx] += dyad_tonicity / roughness;
-            tonicities_per_candidate[cand_idx][hi_idx] += (1.0 - dyad_tonicity) / roughness;
+            let (lo_contrib, hi_contrib) = heuristic_function(dyad_tonicity, roughness);
+            tonicities_per_candidate[cand_idx][lo_idx] += lo_contrib;
+            tonicities_per_candidate[cand_idx][hi_idx] += hi_contrib;
             cand_tonicity_map[existing_idx].push(if existing_higher {
                 1.0 - dyad_tonicity
             } else {
@@ -1148,7 +1319,11 @@ fn print_tree(t: &Traversal) {
             println!(
                 "  {}: {}",
                 e.to,
-                e.edge_contribution(t.note_tonicities_sum, t.edges_parents.len() + 1)
+                e.edge_contribution(
+                    t.note_tonicities_sum,
+                    t.edges_parents.len() + 1,
+                    t.parent_edge_tonicities_sum
+                )
             );
         }
     }
@@ -1171,7 +1346,7 @@ mod tests {
 
     use super::*;
     use crate::utils::cents_to_hz;
-    use std::time::Instant;
+    use std::{time::Instant, usize};
 
     #[test]
     fn test_dyadic_tonicity() {
@@ -1211,7 +1386,7 @@ mod tests {
     }
 
     fn tonicity_candidates(cents: &[f64], cand_cents: &[f64], name: &str) {
-        let out = dyadic_tonicity_candidate_freqs(cents, cand_cents);
+        let out = dyadic_tonicity_heur(cents, cand_cents);
         println!("\n{}:", name);
         for (add_idx, tonicities) in out.tonicities.iter().enumerate() {
             println!("");
@@ -1263,11 +1438,13 @@ mod tests {
             iters,
         );
         graph_diss(&[0.0, 700.0, 200.0, 400.0], "C2 closed", time, iters);
+        graph_diss(&[0.0, 400.0, 700.0, 900.0], "C6", time, iters);
         graph_diss(&[0.0, 400.0, 700.0, 1100.0], "C maj7", time, iters);
         graph_diss(&[0.0, 300.0, 700.0, 1000.0], "C min7", time, iters);
+        graph_diss(&[0.0, 300.0, 700.0, 900.0], "C min6", time, iters);
         graph_diss(&[0.0, 400.0, 700.0, 1000.0], "C7", time, iters);
         graph_diss(&[0.0, 386.0, 702.0, 970.0], "C7 harmonic ish", time, iters);
-        graph_diss(&[0.0, 300.0, 600.0, 900.0], "Cdim7", time, iters);
+        graph_diss(&[0.0, 300.0, 600.0, 900.0], "C dim7", time, iters);
 
         graph_diss(&[0.0, 1000.0, 1600.0, 2100.0, 2500.0], "C13b9", time, iters);
         graph_diss(
@@ -1350,9 +1527,10 @@ mod tests {
                 &context,
                 0.9,
                 elapsed_seconds,
-                10000,
-                10000,
-                10000,
+                usize::MAX,
+                usize::MAX,
+                usize::MAX,
+                PruneMethod::PrioritizeMaxTonicity,
             );
             let mut sum_dyad_diss = 0.0; // just testing what if we ignored edge tonicity.
             for idx in 0..cents.len() {
@@ -1367,9 +1545,13 @@ mod tests {
                     diss[0].avg_diss_per_traversal_per_note[idx] * diss[0].tonicity_context[idx],
                     diss[0].diss_per_note_dyadic_only[idx] * diss[0].tonicities_dyadic_only[idx],
                 );
-                sum_dyad_diss += diss[0].diss_per_note_dyadic_only[idx] * diss[0].tonicities_dyadic_only[idx];
+                sum_dyad_diss +=
+                    diss[0].diss_per_note_dyadic_only[idx] * diss[0].tonicities_dyadic_only[idx];
             }
-            println!("Diss: {:.4} (dyad: {:.4})", diss[0].dissonance, sum_dyad_diss);
+            println!(
+                "Diss: {:.4} (dyad: {:.4})",
+                diss[0].dissonance, sum_dyad_diss
+            );
             println!("{}s: {:#?}", (i + 1) as f64 * elapsed_seconds, diss);
             context = diss[0].tonicity_context.clone();
         }
@@ -1418,9 +1600,10 @@ mod tests {
             &vec![0f64; cents.len()],
             0.9,
             1.0,
-            999999,
-            999999,
-            999999,
+            usize::MAX,
+            usize::MAX,
+            usize::MAX,
+            PruneMethod::PrioritizeMaxTonicity,
         )[0]
         .clone();
         println!("Starting context");
@@ -1434,9 +1617,10 @@ mod tests {
             &diss.tonicity_context,
             0.9,
             1.0,
-            9999999,
-            999999,
-            999999,
+            usize::MAX,
+            usize::MAX,
+            usize::MAX,
+            PruneMethod::PrioritizeMaxTonicity,
         );
 
         for (idx, cand) in cands.iter().enumerate() {
@@ -1447,7 +1631,7 @@ mod tests {
     #[test]
     /// This tests the expectation that having [a, b, c, d] as existing notes, and having one
     /// candidate [d] to add to [a, b, c] should both return almost the same results.
-    fn test_single_candidate_same_treatment() {
+    fn test_single_candidate_graph_diss_same_treatment() {
         let cents = [0.0, 700.0, 1400.0, 1600.0];
         let freqs = cents
             .iter()
@@ -1460,21 +1644,23 @@ mod tests {
             &vec![0f64; freqs.len()],
             0.9,
             0.1,
-            999999,
-            999999,
-            999999,
+            usize::MAX,
+            usize::MAX,
+            usize::MAX,
+            PruneMethod::PrioritizeMaxTonicity,
         )[0]
         .clone();
 
         let diss_candidate = graph_dissonance(
-            &freqs[..3],
-            &[freqs[3]],
+            &freqs[..(freqs.len() - 1)],
+            &[*freqs.last().unwrap()],
             &vec![0f64; freqs.len() - 1],
             0.9,
             0.1,
-            999999,
-            999999,
-            999999,
+            usize::MAX,
+            usize::MAX,
+            usize::MAX,
+            PruneMethod::PrioritizeMaxTonicity,
         )[0]
         .clone();
 
@@ -1486,51 +1672,248 @@ mod tests {
         );
     }
 
+    /// This tests the expectation that having [a, b, c, d] as existing notes, and having one
+    /// candidate [d] to add to [a, b, c] should both return almost the same results.
     #[test]
-    fn test_pruning_deterioration() {
-        let cents = [0.0, 600.0, 1000.0, 1300.0, 1600.0, 2100.0];
+    fn test_single_candidate_tonicity_heur_same_treatment() {
+        let cents = [0.0, 700.0, 1400.0, 1600.0];
         let freqs = cents
             .iter()
             .map(|x| cents_to_hz(440.0, *x))
             .collect::<Vec<f64>>();
+
+        let heur_existing = dyadic_tonicity_heur(&freqs, &[]);
+
+        let heur_candidate =
+            dyadic_tonicity_heur(&freqs[..(freqs.len() - 1)], &[*freqs.last().unwrap()]);
+
+        println!("\nExisting: {:#?}", heur_existing);
+        println!("\nCandidate: {:#?}", heur_candidate);
+    }
+
+    /// Ensures that the tonicity heuristic should return the same result no matter the order of the
+    /// input notes.
+    #[test]
+    fn test_tonicity_heur_note_order_invariant() {
+        let cents = [0.0, 700.0, 1400.0, 1600.0];
+        let freqs = cents
+            .iter()
+            .map(|x| cents_to_hz(440.0, *x))
+            .collect::<Vec<f64>>();
+
+        let forwards = dyadic_tonicity_heur(&freqs, &[]);
+        let backwards =
+            dyadic_tonicity_heur(&freqs.iter().rev().copied().collect::<Vec<f64>>(), &[]);
+
+        println!("\nForwards: {:#?}", forwards.tonicities);
+        println!(
+            "\nBackwards: {:#?}",
+            backwards.tonicities.iter().rev().collect::<Vec<_>>()
+        );
+    }
+
+    /// It appears the most efficient pruning setting that preserves tonicity & minimizes inversions
+    /// on the relative order of note tonicities is (3, MAX, 2000 to 4000) on the
+    /// PrioritizeMaxTonicity method
+    ///
+    /// However, for dissonance calculations, (2, MAX, 400-2000) with Random method appears to work
+    /// really fast while the dissonance scores are not too far off from the best pruning settings.
+    ///
+    /// We still have to test relative order dissonance scores between different candidates though...
+    #[test]
+    fn test_pruning_deterioration() {
+        // let cents = [0., 600., 1000., 1300., 1600., 2100.]; // C13b9b5 (6 notes)
+        // let cents = [0., 700., 1100., 1400., 1500., 1900., 2100.]; // Cm69maj7 (7 notes)
+        let cents = [0., 400., 700., 1100., 1400., 1800., 2100., 2500.]; // Cmaj#15 (8 notes)
+        let freqs = cents
+            .iter()
+            .map(|x| cents_to_hz(440.0, *x))
+            .collect::<Vec<f64>>();
+        let max_ram_usage_allowed = 10_000_000_000;
+        let max_traversals = max_ram_usage_allowed / (size_of::<Traversal>() + size_of::<Edge>() * cents.len() * 3);
         let prune_settings = [
-            (10_000_000, 10_000_000, 10_000_000),
-            (10_000_000, 10_000_000, 10_000),
-            (10_000_000, 10_000_000, 1000),
-            (10_000_000, 10_000_000, 100),
-            (6, 10_000_000, 10_000_000),
-            (5, 10_000_000, 10_000_000),
-            (4, 10_000_000, 10_000_000),
-            (3, 10_000_000, 10_000_000),
-            (2, 10_000_000, 10_000_000),
-            (10_000_000, 10000, 10_000_000),
-            (10_000_000, 1000, 10_000_000),
-            (10_000_000, 100, 10_000_000),
+            // general settings to figure out what works best
+            // (10_000_000, 10_000_000, 100_000),
+            // (10_000_000, 10_000_000, 10_000),
+            // (6, 10_000_000, 10_000_000),
+            // (5, 10_000_000, 10_000_000),
+            // (4, 10_000_000, 10_000_000),
+            // (3, 10_000_000, 10_000_000),
+            // (2, 10_000_000, 10_000_000),
+            // (10_000_000, 20000, 10_000_000),
+            // (10_000_000, 10000, 10_000_000),
+            // (10_000_000, 1000, 10_000_000),
+            // (10_000_000, 100, 10_000_000),
+
+            // trying out specific combos that seem to work well for max attempts (traversals) per
+            // iter, we have no choice but to limit it, otherwise there's not enough RAM for stack
+            // buffer. Traversal is 208 bytes at the time of writing.
+            (4, usize::MAX, max_traversals),
+            (4, usize::MAX, 10_000),
+            (4, usize::MAX, 6_000),
+            (4, usize::MAX, 3_000),
+            (4, usize::MAX, 1_000),
+            (3, usize::MAX, max_traversals),
+            (3, usize::MAX, 4_000),
+            (3, usize::MAX, 2_000),
+            (3, usize::MAX, 1_000),
+            (2, usize::MAX, max_traversals),
+            (2, usize::MAX, 400),
+            (2, usize::MAX, 200),
+            (2, usize::MAX, 100),
+        ];
+        let prune_methods = [
+            PruneMethod::PrioritizeMaxTonicity,
+            PruneMethod::PrioritizeMinDiss,
+            PruneMethod::Random,
         ];
         println!("Computing lookups...");
         TonicityLookup::dyad_tonicity(800.0);
 
-        for (max_attempts_per_trv, max_attempts_per_iteration, target_num_traversals) in
-            prune_settings
-        {
-            let start = Instant::now();
-            let diss = graph_dissonance(
-                &freqs,
-                &[],
-                &vec![0f64; freqs.len()],
-                0.9,
-                0.1,
-                max_attempts_per_trv,
-                max_attempts_per_iteration,
-                target_num_traversals,
+        println!(
+            "Maximum traversals are capped at {max_traversals} to cap ram usage at {max_ram_usage_allowed} bytes.\n\
+            Because of memory constraints, the baseline is capped at 7 attempts per traversal, so N >= 8 is not accurate."
+        );
+        let max_attempts_per_trv = 7;
+
+        // TODO: for full traversal of cases N >= 8, implement memory mapped files using memmap2.
+        // Figure out how to use lazy loading for the traversal process.
+
+        let start = Instant::now();
+        let baseline = graph_dissonance(
+            &freqs,
+            &[],
+            &vec![0f64; freqs.len()],
+            0.9,
+            0.1,
+            max_attempts_per_trv,
+            usize::MAX,
+            max_traversals,
+            PruneMethod::PrioritizeMaxTonicity,
+        )[0]
+        .clone();
+        let baseline_duration = start.elapsed();
+
+        println!("Baseline: {:#?}", baseline);
+        println!("Time taken: {:?}", baseline_duration);
+        println!("\n---------------------------------------------\n");
+
+        for prune_method in &prune_methods {
+            for (max_attempts_per_trv, max_attempts_per_iteration, target_num_traversals) in
+                prune_settings
+            {
+                let start = Instant::now();
+                let pruned = graph_dissonance(
+                    &freqs,
+                    &[],
+                    &vec![0f64; freqs.len()],
+                    0.9,
+                    0.1,
+                    max_attempts_per_trv,
+                    max_attempts_per_iteration,
+                    target_num_traversals,
+                    *prune_method,
+                )[0]
+                .clone();
+                let duration = start.elapsed();
+                println!(
+                "\nPruning settings: {}, Max attempts per traversal: {}, Max attempts per iteration: {}, Num traversals: {}",
+                prune_method, max_attempts_per_trv, max_attempts_per_iteration, target_num_traversals
             );
-            let duration = start.elapsed();
-            println!(
-                "\nPruning settings: Max attempts per traversal: {:?}, Max attempts per iteration: {:?}, Num traversals: {:?}",
-                max_attempts_per_trv, max_attempts_per_iteration, target_num_traversals
-            );
-            println!("{:#?}", diss);
-            println!("Time taken: {:?}", duration);
+                println!("{:#?}", pruned);
+                println!("Time taken: {:?}", duration);
+
+                // Compare with baseline.
+
+                let dissonance_difference = pruned.dissonance - baseline.dissonance;
+
+                // Use root mean square error to compare the tonicity vectors.
+                let tonicity_difference = pruned
+                    .tonicity_context
+                    .iter()
+                    .zip(baseline.tonicity_context.iter())
+                    .map(|(a, b)| (a - b).powi(2))
+                    .sum::<f64>()
+                    .sqrt();
+
+                // Count how many inversions there are in the tonicity vectors. The more inversions,
+                // the more inconsistencies in the relative order of tonicities of notes.
+                let tonicity_inversions =
+                    count_inversions(&pruned.tonicity_context, &baseline.tonicity_context);
+
+                let time_reduction = baseline_duration.as_secs_f64() / duration.as_secs_f64();
+
+                // number in parentheses scales the error by the time reduction factor.
+                println!(
+                    "Dissonance difference: {:.4} ({:.4}), Tonicity difference: {:.4} ({:.4}), Tonicity inversions: {}",
+                    dissonance_difference,
+                    dissonance_difference / time_reduction * 1e5,
+                    tonicity_difference,
+                    tonicity_difference / time_reduction * 1e5,
+                    tonicity_inversions
+                );
+                println!(
+                    "Intermediate traversal reduction: {:.3}x, Completed traversal reduction: {:.3}x",
+                    baseline.num_traversals as f64 / pruned.num_traversals as f64,
+                    baseline.num_completed_traversals as f64 / pruned.num_completed_traversals as f64
+                );
+                println!("\n------------------------------------------\n")
+            }
         }
+    }
+
+    /// Count the number of inversions between two lists (elements needn't be the same)
+    ///
+    /// Here, an inversion is defined as a pair of elements in the list `a` such that `a[i] > a[j]` but `b[i] < b[j]`.
+    fn count_inversions<T: PartialOrd>(a: &[T], b: &[T]) -> usize {
+        // We're only going to have lists of up to 8 numbers maximum, so there's no point
+        // implementing the more efficient merge sort method for O(n log n).
+        let mut inversions = 0;
+        for i in 0..a.len() {
+            for j in (i + 1)..a.len() {
+                if a[i] > a[j] && b[i] < b[j] {
+                    inversions += 1;
+                }
+            }
+        }
+        inversions
+    }
+
+    #[test]
+    fn test_binary_heap() {
+        let mut heap = BinaryHeap::new_by_key(|a| *a);
+        heap.push(5);
+        heap.push(1);
+        heap.push(3);
+        heap.push(9);
+        heap.push(2);
+        heap.push(6);
+        println!("By key: {:?}", heap.into_sorted_vec());
+        // will put min first, max last.
+
+        let mut heap = BinaryHeap::new_by(|a: &f64, b| a.partial_cmp(b).unwrap());
+        heap.push(1.);
+        heap.push(5.);
+        heap.push(3.);
+        heap.push(6.);
+        heap.push(2.);
+        heap.push(9.);
+
+        // Notice that the unsorted into_vec does not guarantee a fair random ordering.
+        // The first half of the vec will always be greater than the second half.
+        println!("Unsorted: {:?}", heap.clone().into_vec());
+
+        println!("By partial cmp: {:?}", heap.into_sorted_vec());
+        // a.cmp(b) will put min first, max last.
+
+        let mut heap = BinaryHeap::new_by(|a: &f64, b| random::<u32>().cmp(&random()));
+        heap.push(1.);
+        heap.push(5.);
+        heap.push(3.);
+        heap.push(6.);
+        heap.push(2.);
+        heap.push(9.);
+        println!("By random unsorted: {:?}", heap.clone().into_sorted_vec());
+        println!("By random: {:?}", heap.into_sorted_vec());
     }
 }

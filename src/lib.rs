@@ -1,4 +1,5 @@
 mod dyad_lookup;
+mod harmonic_context;
 mod polyadic;
 mod utils;
 

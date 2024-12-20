@@ -1,0 +1,1082 @@
+
+running 1 test
+===================== OCTAVES =======================
+
+Graph diss: 2 notes
+Iteration 1: 2 traversals so far, 2 completed, 0 next
+     0.00c:  0.0409 (dyad:  0.0409) [diss] x  0.6101 (target:  0.6138, dyad:  0.6138) [tonicity] = 0.0250 (dyad: 0.0251)
+  1200.00c:  0.0057 (dyad:  0.0057) [diss] x  0.3899 (target:  0.3862, dyad:  0.3862) [tonicity] = 0.0022 (dyad: 0.0022)
+Diss: 0.0272 (dyad: 0.0273)
+2.5s: [
+    Dissonance {
+        dissonance: 0.027205752373329464,
+        tonicity_target: [
+            0.613792255710342,
+            0.38620774428965793,
+        ],
+        tonicity_context: [
+            0.6100854974560427,
+            0.3899145025439573,
+        ],
+        iterations: 1,
+        num_traversals: 2,
+        num_completed_traversals: 2,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            1,
+            1,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.04093121478837121,
+            0.0057300044576669975,
+        ],
+        diss_entropy_per_note: [
+            0.0,
+            -8.881784197001252e-16,
+        ],
+        tonicity_entropy_per_note: [
+            0.40132287391212973,
+            0.40132287391212973,
+        ],
+        entropy_between_notes_pre_tonicity: 0.5373565891196668,
+        note_tonicities_target_entropy: 0.9623086153037002,
+        tonicity_context_entropy: 0.964744351829133,
+        tonicities_dyadic_only: [
+            0.613792255710342,
+            0.38620774428965793,
+        ],
+        diss_per_note_dyadic_only: [
+            0.04093121478837121,
+            0.0057300044576669975,
+        ],
+    },
+]
+
+Graph diss: 3 notes
+Iteration 1: 3 traversals so far, 0 completed, 6 next
+Iteration 2: 9 traversals so far, 12 completed, 0 next
+     0.00c:  0.0333 (dyad:  0.0585) [diss] x  0.4497 (target:  0.4536, dyad:  0.3860) [tonicity] = 0.0150 (dyad: 0.0226)
+  1200.00c:  0.0176 (dyad:  0.0335) [diss] x  0.3564 (target:  0.3572, dyad:  0.3476) [tonicity] = 0.0063 (dyad: 0.0116)
+  2400.00c:  0.0091 (dyad:  0.0213) [diss] x  0.1939 (target:  0.1892, dyad:  0.2664) [tonicity] = 0.0018 (dyad: 0.0057)
+Diss: 0.0230 (dyad: 0.0399)
+2.5s: [
+    Dissonance {
+        dissonance: 0.023009473229093528,
+        tonicity_target: [
+            0.4536267972789327,
+            0.3571819170024211,
+            0.1891912857186463,
+        ],
+        tonicity_context: [
+            0.4497082635647082,
+            0.3564050545189691,
+            0.1938866819163226,
+        ],
+        iterations: 2,
+        num_traversals: 9,
+        num_completed_traversals: 12,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            4,
+            4,
+            4,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.033284936424132466,
+            0.01759657161558808,
+            0.00912623385704365,
+        ],
+        diss_entropy_per_note: [
+            1.7720777494618973,
+            1.8959363590108445,
+            1.567363872491784,
+        ],
+        tonicity_entropy_per_note: [
+            2.5992908702800785,
+            2.894643586252459,
+            3.192705376338715,
+        ],
+        entropy_between_notes_pre_tonicity: 1.4038414620972421,
+        note_tonicities_target_entropy: 1.5022903979038653,
+        tonicity_context_entropy: 1.5078374138072,
+        tonicities_dyadic_only: [
+            0.3860139831173067,
+            0.3475729867513659,
+            0.2664130301313274,
+        ],
+        diss_per_note_dyadic_only: [
+            0.05850915298536298,
+            0.033459307768757926,
+            0.0212529341857125,
+        ],
+    },
+]
+
+Graph diss: 4 notes
+Iteration 1: 4 traversals so far, 0 completed, 12 next
+Iteration 2: 16 traversals so far, 0 completed, 48 next
+Iteration 3: 64 traversals so far, 144 completed, 0 next
+     0.00c:  0.0241 (dyad:  0.0555) [diss] x  0.2759 (target:  0.2768, dyad:  0.2604) [tonicity] = 0.0066 (dyad: 0.0145)
+  1200.00c:  0.0206 (dyad:  0.0509) [diss] x  0.3151 (target:  0.3173, dyad:  0.2661) [tonicity] = 0.0065 (dyad: 0.0135)
+  2400.00c:  0.0164 (dyad:  0.0443) [diss] x  0.2400 (target:  0.2397, dyad:  0.2464) [tonicity] = 0.0039 (dyad: 0.0109)
+  3600.00c:  0.0099 (dyad:  0.0361) [diss] x  0.1690 (target:  0.1663, dyad:  0.2270) [tonicity] = 0.0017 (dyad: 0.0082)
+Diss: 0.0187 (dyad: 0.0471)
+2.5s: [
+    Dissonance {
+        dissonance: 0.018747089528462168,
+        tonicity_target: [
+            0.276769589850397,
+            0.31731112103367265,
+            0.23966719384455845,
+            0.16625209527137186,
+        ],
+        tonicity_context: [
+            0.27589757621886524,
+            0.31511847574388396,
+            0.2400037827825988,
+            0.16898016525465198,
+        ],
+        iterations: 3,
+        num_traversals: 64,
+        num_completed_traversals: 144,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            36,
+            36,
+            36,
+            36,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.024098703276576382,
+            0.020590565667663423,
+            0.016432778756341082,
+            0.009858665784098115,
+        ],
+        diss_entropy_per_note: [
+            4.598208206301827,
+            4.737452613061456,
+            4.6700634853768985,
+            4.748809453193313,
+        ],
+        tonicity_entropy_per_note: [
+            5.620157502822004,
+            5.7515042612502265,
+            5.916267921188528,
+            6.079686630183062,
+        ],
+        entropy_between_notes_pre_tonicity: 1.9312949252021414,
+        note_tonicities_target_entropy: 1.962679814814892,
+        tonicity_context_entropy: 1.965142715239829,
+        tonicities_dyadic_only: [
+            0.26041923077872814,
+            0.2661067449984802,
+            0.24643696551983296,
+            0.22703705870295876,
+        ],
+        diss_per_note_dyadic_only: [
+            0.055494352797652725,
+            0.050877599108836276,
+            0.044257641178207796,
+            0.03612470005833298,
+        ],
+    },
+]
+
+Graph diss: 5 notes
+Iteration 1: 5 traversals so far, 0 completed, 20 next
+Iteration 2: 25 traversals so far, 0 completed, 120 next
+Iteration 3: 145 traversals so far, 0 completed, 720 next
+Iteration 4: 865 traversals so far, 2880 completed, 0 next
+     0.00c:  0.0215 (dyad:  0.0660) [diss] x  0.2170 (target:  0.2176, dyad:  0.2144) [tonicity] = 0.0047 (dyad: 0.0141)
+  1200.00c:  0.0172 (dyad:  0.0544) [diss] x  0.2256 (target:  0.2264, dyad:  0.1985) [tonicity] = 0.0039 (dyad: 0.0108)
+  2400.00c:  0.0178 (dyad:  0.0581) [diss] x  0.2242 (target:  0.2251, dyad:  0.2022) [tonicity] = 0.0040 (dyad: 0.0117)
+  3600.00c:  0.0174 (dyad:  0.0599) [diss] x  0.2126 (target:  0.2131, dyad:  0.2024) [tonicity] = 0.0037 (dyad: 0.0121)
+  4800.00c:  0.0074 (dyad:  0.0424) [diss] x  0.1205 (target:  0.1178, dyad:  0.1825) [tonicity] = 0.0009 (dyad: 0.0077)
+Diss: 0.0171 (dyad: 0.0565)
+2.5s: [
+    Dissonance {
+        dissonance: 0.01713042368172001,
+        tonicity_target: [
+            0.2176025538965811,
+            0.2264252018401132,
+            0.225050873444871,
+            0.21307253204663265,
+            0.1178488387718021,
+        ],
+        tonicity_context: [
+            0.2170291544895161,
+            0.22556440657394233,
+            0.22423484663057222,
+            0.21264669712697173,
+            0.12052489517899773,
+        ],
+        iterations: 4,
+        num_traversals: 865,
+        num_completed_traversals: 2880,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            576,
+            576,
+            576,
+            576,
+            576,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.02147707576394777,
+            0.017201912734354747,
+            0.01779900742942093,
+            0.017404763364241488,
+            0.0074416966202255535,
+        ],
+        diss_entropy_per_note: [
+            8.564980407099707,
+            8.448054519141376,
+            8.529394048274488,
+            8.622989915566317,
+            8.651914703962687,
+        ],
+        tonicity_entropy_per_note: [
+            9.559068541201949,
+            9.520285492660163,
+            9.628135027481527,
+            9.68440599723641,
+            9.869939166301453,
+        ],
+        entropy_between_notes_pre_tonicity: 2.252775568206684,
+        note_tonicities_target_entropy: 2.2870567344270123,
+        tonicity_context_entropy: 2.2894507405205022,
+        tonicities_dyadic_only: [
+            0.21440274635487055,
+            0.1985252782867719,
+            0.20223288601560988,
+            0.2023748054683786,
+            0.18246428387436905,
+        ],
+        diss_per_note_dyadic_only: [
+            0.06597306352555249,
+            0.05437934290553556,
+            0.05806600358155721,
+            0.059905034984513036,
+            0.04239196708596147,
+        ],
+    },
+]
+
+Graph diss: 6 notes
+Iteration 1: 6 traversals so far, 0 completed, 30 next
+Iteration 2: 36 traversals so far, 0 completed, 240 next
+Iteration 3: 276 traversals so far, 0 completed, 2160 next
+Iteration 4: 2436 traversals so far, 0 completed, 17280 next
+Iteration 5: 19716 traversals so far, 86400 completed, 0 next
+     0.00c:  0.0169 (dyad:  0.0672) [diss] x  0.1524 (target:  0.1519, dyad:  0.1698) [tonicity] = 0.0026 (dyad: 0.0114)
+  1200.00c:  0.0166 (dyad:  0.0652) [diss] x  0.1961 (target:  0.1970, dyad:  0.1707) [tonicity] = 0.0033 (dyad: 0.0111)
+  2400.00c:  0.0148 (dyad:  0.0599) [diss] x  0.1742 (target:  0.1744, dyad:  0.1624) [tonicity] = 0.0026 (dyad: 0.0097)
+  3600.00c:  0.0185 (dyad:  0.0711) [diss] x  0.2032 (target:  0.2044, dyad:  0.1730) [tonicity] = 0.0038 (dyad: 0.0123)
+  4800.00c:  0.0144 (dyad:  0.0628) [diss] x  0.1620 (target:  0.1619, dyad:  0.1652) [tonicity] = 0.0023 (dyad: 0.0104)
+  6000.00c:  0.0074 (dyad:  0.0530) [diss] x  0.1121 (target:  0.1103, dyad:  0.1589) [tonicity] = 0.0008 (dyad: 0.0084)
+Diss: 0.0153 (dyad: 0.0634)
+2.5s: [
+    Dissonance {
+        dissonance: 0.015321376576365054,
+        tonicity_target: [
+            0.1518765317699121,
+            0.19704973555023447,
+            0.17443286872827193,
+            0.20444922129183316,
+            0.16187912785036596,
+            0.1103125148093823,
+        ],
+        tonicity_context: [
+            0.15235831723297824,
+            0.19606001361641684,
+            0.17417988636653997,
+            0.2032184627015311,
+            0.16203508089755994,
+            0.11214823918497392,
+        ],
+        iterations: 5,
+        num_traversals: 19716,
+        num_completed_traversals: 86400,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            14400,
+            14400,
+            14400,
+            14400,
+            14400,
+            14400,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.016893229687495365,
+            0.01660527982106574,
+            0.01481867274435345,
+            0.018495881868415023,
+            0.014356023472703898,
+            0.0073645587985876415,
+        ],
+        diss_entropy_per_note: [
+            12.92043403911195,
+            13.06715726836086,
+            12.912255489549377,
+            13.175224044138112,
+            13.013312443558142,
+            13.180696302802705,
+        ],
+        tonicity_entropy_per_note: [
+            13.926095466541907,
+            13.987949900373973,
+            14.016751927001458,
+            14.097338644107754,
+            14.047571343073349,
+            14.15482820873677,
+        ],
+        entropy_between_notes_pre_tonicity: 2.536462011219959,
+        note_tonicities_target_entropy: 2.5584731922436728,
+        tonicity_context_entropy: 2.560223471328245,
+        tonicities_dyadic_only: [
+            0.16978522129355117,
+            0.17070236431353092,
+            0.16240825391228675,
+            0.17299913019882393,
+            0.16520953466293997,
+            0.1588954956188672,
+        ],
+        diss_per_note_dyadic_only: [
+            0.06717335780036222,
+            0.06515640167941689,
+            0.059934123806675885,
+            0.07112862636531363,
+            0.06279976870510964,
+            0.05299393939178636,
+        ],
+    },
+]
+===================== FIFTHS ========================
+
+Graph diss: 2 notes
+Iteration 1: 2 traversals so far, 2 completed, 0 next
+     0.00c:  0.4165 (dyad:  0.4165) [diss] x  0.6288 (target:  0.6332, dyad:  0.6332) [tonicity] = 0.2619 (dyad: 0.2637)
+   700.00c:  0.2141 (dyad:  0.2141) [diss] x  0.3712 (target:  0.3668, dyad:  0.3668) [tonicity] = 0.0795 (dyad: 0.0785)
+Diss: 0.3414 (dyad: 0.3423)
+2.5s: [
+    Dissonance {
+        dissonance: 0.34139828450674864,
+        tonicity_target: [
+            0.6331623401435462,
+            0.3668376598564538,
+        ],
+        tonicity_context: [
+            0.6288246055551278,
+            0.3711753944448723,
+        ],
+        iterations: 1,
+        num_traversals: 2,
+        num_completed_traversals: 2,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            1,
+            1,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.41652370132817823,
+            0.21412500263807052,
+        ],
+        diss_entropy_per_note: [
+            -2.220446049250313e-16,
+            0.0,
+        ],
+        tonicity_entropy_per_note: [
+            0.7711255775844033,
+            0.7711255775844033,
+        ],
+        entropy_between_notes_pre_tonicity: 0.9243695280851554,
+        note_tonicities_target_entropy: 0.948212980204501,
+        tonicity_context_entropy: 0.9515703182917747,
+        tonicities_dyadic_only: [
+            0.6331623401435462,
+            0.3668376598564538,
+        ],
+        diss_per_note_dyadic_only: [
+            0.41652370132817823,
+            0.21412500263807052,
+        ],
+    },
+]
+
+Graph diss: 3 notes
+Iteration 1: 3 traversals so far, 0 completed, 6 next
+Iteration 2: 9 traversals so far, 12 completed, 0 next
+     0.00c:  0.3799 (dyad:  0.7346) [diss] x  0.4463 (target:  0.4501, dyad:  0.4001) [tonicity] = 0.1696 (dyad: 0.2939)
+   700.00c:  0.2996 (dyad:  0.5942) [diss] x  0.3305 (target:  0.3304, dyad:  0.3406) [tonicity] = 0.0990 (dyad: 0.2024)
+  1400.00c:  0.2236 (dyad:  0.4746) [diss] x  0.2232 (target:  0.2195, dyad:  0.2593) [tonicity] = 0.0499 (dyad: 0.1231)
+Diss: 0.3185 (dyad: 0.6194)
+2.5s: [
+    Dissonance {
+        dissonance: 0.31848583719671547,
+        tonicity_target: [
+            0.4501289711211976,
+            0.3304013991565922,
+            0.2194696297222101,
+        ],
+        tonicity_context: [
+            0.44632437834171745,
+            0.33049690628177275,
+            0.22317871537650977,
+        ],
+        iterations: 2,
+        num_traversals: 9,
+        num_completed_traversals: 12,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            4,
+            4,
+            4,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.3799178926262631,
+            0.29959982375554284,
+            0.22359840628818478,
+        ],
+        diss_entropy_per_note: [
+            1.9773956239609674,
+            1.9959772851701558,
+            1.9505776630153502,
+        ],
+        tonicity_entropy_per_note: [
+            3.084238864257074,
+            3.284330511122564,
+            3.4437104428050818,
+        ],
+        entropy_between_notes_pre_tonicity: 1.5522427172432651,
+        note_tonicities_target_entropy: 1.5264280231553542,
+        tonicity_context_entropy: 1.5302461728407566,
+        tonicities_dyadic_only: [
+            0.40010544043996593,
+            0.3405582927268197,
+            0.25933626683321437,
+        ],
+        diss_per_note_dyadic_only: [
+            0.7346095576920519,
+            0.5942243077564752,
+            0.47455463232359785,
+        ],
+    },
+]
+
+Graph diss: 4 notes
+Iteration 1: 4 traversals so far, 0 completed, 12 next
+Iteration 2: 16 traversals so far, 0 completed, 48 next
+Iteration 3: 64 traversals so far, 144 completed, 0 next
+     0.00c:  0.3379 (dyad:  0.9477) [diss] x  0.3214 (target:  0.3238, dyad:  0.2878) [tonicity] = 0.1086 (dyad: 0.2727)
+   700.00c:  0.3096 (dyad:  0.8773) [diss] x  0.2835 (target:  0.2847, dyad:  0.2654) [tonicity] = 0.0878 (dyad: 0.2329)
+  1400.00c:  0.2668 (dyad:  0.7983) [diss] x  0.2278 (target:  0.2271, dyad:  0.2378) [tonicity] = 0.0608 (dyad: 0.1898)
+  2100.00c:  0.2045 (dyad:  0.7065) [diss] x  0.1672 (target:  0.1644, dyad:  0.2090) [tonicity] = 0.0342 (dyad: 0.1477)
+Diss: 0.2914 (dyad: 0.8430)
+2.5s: [
+    Dissonance {
+        dissonance: 0.2913571292478785,
+        tonicity_target: [
+            0.3238218432436351,
+            0.28466713431864643,
+            0.22706771697800063,
+            0.16444330545971786,
+        ],
+        tonicity_context: [
+            0.3214171125782418,
+            0.28353785987473656,
+            0.22781473116495993,
+            0.16723029638206177,
+        ],
+        iterations: 3,
+        num_traversals: 64,
+        num_completed_traversals: 144,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            36,
+            36,
+            36,
+            36,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.3378519640567954,
+            0.309594357648145,
+            0.26684447086858815,
+            0.20446596239418563,
+        ],
+        diss_entropy_per_note: [
+            5.109091307607562,
+            5.13944157807685,
+            5.130100418408617,
+            5.112095002965249,
+        ],
+        tonicity_entropy_per_note: [
+            6.330586582332413,
+            6.459229903111682,
+            6.584188946125023,
+            6.735519797013001,
+        ],
+        entropy_between_notes_pre_tonicity: 1.9759110443408203,
+        note_tonicities_target_entropy: 1.9566920843983646,
+        tonicity_context_entropy: 1.9595374428174201,
+        tonicities_dyadic_only: [
+            0.28777850085897694,
+            0.2654443463009031,
+            0.23775382421037497,
+            0.2090233286297451,
+        ],
+        diss_per_note_dyadic_only: [
+            0.9476520917230622,
+            0.8772551725935201,
+            0.798272469059611,
+            0.7065270527665887,
+        ],
+    },
+]
+
+Graph diss: 5 notes
+Iteration 1: 5 traversals so far, 0 completed, 20 next
+Iteration 2: 25 traversals so far, 0 completed, 120 next
+Iteration 3: 145 traversals so far, 0 completed, 720 next
+Iteration 4: 865 traversals so far, 2880 completed, 0 next
+     0.00c:  0.3049 (dyad:  1.1215) [diss] x  0.2509 (target:  0.2526, dyad:  0.2291) [tonicity] = 0.0765 (dyad: 0.2569)
+   700.00c:  0.2900 (dyad:  1.0664) [diss] x  0.2320 (target:  0.2331, dyad:  0.2108) [tonicity] = 0.0673 (dyad: 0.2248)
+  1400.00c:  0.2802 (dyad:  1.0402) [diss] x  0.2129 (target:  0.2133, dyad:  0.1989) [tonicity] = 0.0596 (dyad: 0.2069)
+  2100.00c:  0.2436 (dyad:  0.9841) [diss] x  0.1771 (target:  0.1764, dyad:  0.1886) [tonicity] = 0.0431 (dyad: 0.1856)
+  2800.00c:  0.1757 (dyad:  0.8825) [diss] x  0.1272 (target:  0.1247, dyad:  0.1727) [tonicity] = 0.0223 (dyad: 0.1524)
+Diss: 0.2689 (dyad: 1.0265)
+2.5s: [
+    Dissonance {
+        dissonance: 0.268883754015108,
+        tonicity_target: [
+            0.2525868581712342,
+            0.23305085376133047,
+            0.21328322897895033,
+            0.17636578882783002,
+            0.12471327026065507,
+        ],
+        tonicity_context: [
+            0.2508738525771621,
+            0.2319742293089309,
+            0.2128505306520377,
+            0.1771356681733041,
+            0.12716571928856513,
+        ],
+        iterations: 4,
+        num_traversals: 865,
+        num_completed_traversals: 2880,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            576,
+            576,
+            576,
+            576,
+            576,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.3048883898681374,
+            0.29002823786993787,
+            0.28016442403188635,
+            0.24357437113955704,
+            0.17565501853325136,
+        ],
+        diss_entropy_per_note: [
+            9.067946662537388,
+            9.099866600441922,
+            9.117042936644495,
+            9.102970272134794,
+            9.09710211714856,
+        ],
+        tonicity_entropy_per_note: [
+            10.296953491040913,
+            10.376998348416802,
+            10.46341692221389,
+            10.549939962806597,
+            10.709717364255486,
+        ],
+        entropy_between_notes_pre_tonicity: 2.297316121131371,
+        note_tonicities_target_entropy: 2.282629811671846,
+        tonicity_context_entropy: 2.2852455416848128,
+        tonicities_dyadic_only: [
+            0.22905541844781485,
+            0.21077872243795168,
+            0.19889290136056995,
+            0.18861730989146483,
+            0.17265564786219856,
+        ],
+        diss_per_note_dyadic_only: [
+            1.1214579051382219,
+            1.066389904867148,
+            1.040207749429079,
+            0.9841211162984376,
+            0.8824605840076231,
+        ],
+    },
+]
+
+Graph diss: 6 notes
+Iteration 1: 6 traversals so far, 0 completed, 30 next
+Iteration 2: 36 traversals so far, 0 completed, 240 next
+Iteration 3: 276 traversals so far, 0 completed, 2160 next
+Iteration 4: 2436 traversals so far, 0 completed, 17280 next
+Iteration 5: 19716 traversals so far, 86400 completed, 0 next
+     0.00c:  0.2707 (dyad:  1.2481) [diss] x  0.1985 (target:  0.1995, dyad:  0.1881) [tonicity] = 0.0537 (dyad: 0.2348)
+   700.00c:  0.2704 (dyad:  1.2189) [diss] x  0.1976 (target:  0.1987, dyad:  0.1774) [tonicity] = 0.0534 (dyad: 0.2163)
+  1400.00c:  0.2675 (dyad:  1.2016) [diss] x  0.1862 (target:  0.1868, dyad:  0.1667) [tonicity] = 0.0498 (dyad: 0.2004)
+  2100.00c:  0.2588 (dyad:  1.1912) [diss] x  0.1731 (target:  0.1733, dyad:  0.1628) [tonicity] = 0.0448 (dyad: 0.1940)
+  2800.00c:  0.2153 (dyad:  1.1217) [diss] x  0.1400 (target:  0.1391, dyad:  0.1564) [tonicity] = 0.0301 (dyad: 0.1755)
+  3500.00c:  0.1545 (dyad:  1.0314) [diss] x  0.1047 (target:  0.1027, dyad:  0.1485) [tonicity] = 0.0162 (dyad: 0.1531)
+Diss: 0.2481 (dyad: 1.1740)
+2.5s: [
+    Dissonance {
+        dissonance: 0.24805813075312613,
+        tonicity_target: [
+            0.19952153614128038,
+            0.19867028143969298,
+            0.18680605953915724,
+            0.17326613468253865,
+            0.13908236500077628,
+            0.10265362319655445,
+        ],
+        tonicity_context: [
+            0.1984512958348666,
+            0.19762777057208789,
+            0.1861500231480982,
+            0.17305115843139476,
+            0.13998091769446222,
+            0.10473883431909044,
+        ],
+        iterations: 5,
+        num_traversals: 19716,
+        num_completed_traversals: 86400,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            14400,
+            14400,
+            14400,
+            14400,
+            14400,
+            14400,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.270694728810222,
+            0.2704302607410827,
+            0.2675142331656235,
+            0.25879281784205166,
+            0.21525035041128704,
+            0.1544867519543027,
+        ],
+        diss_entropy_per_note: [
+            13.65536662712406,
+            13.705659125190726,
+            13.730762577440641,
+            13.739161872877775,
+            13.7096433504635,
+            13.712628834690582,
+        ],
+        tonicity_entropy_per_note: [
+            14.873730170419986,
+            14.915452824019821,
+            14.99459201470267,
+            15.056698696322968,
+            15.123391086208322,
+            15.245500124917134,
+        ],
+        entropy_between_notes_pre_tonicity: 2.560116613887335,
+        note_tonicities_target_entropy: 2.5504525727986573,
+        tonicity_context_entropy: 2.5527625791701407,
+        tonicities_dyadic_only: [
+            0.18811427092197966,
+            0.17743223661465585,
+            0.16674596424278987,
+            0.16283579487818556,
+            0.15641271873283188,
+            0.14845901460955704,
+        ],
+        diss_per_note_dyadic_only: [
+            1.2481365796687462,
+            1.2188573073283022,
+            1.2015530954182267,
+            1.191215484210697,
+            1.1217473285858235,
+            1.0314337809981167,
+        ],
+    },
+]
+===================== FOURTHS =======================
+
+Graph diss: 2 notes
+Iteration 1: 2 traversals so far, 2 completed, 0 next
+     0.00c:  0.3220 (dyad:  0.3220) [diss] x  0.3712 (target:  0.3668, dyad:  0.3668) [tonicity] = 0.1195 (dyad: 0.1181)
+   500.00c:  0.5252 (dyad:  0.5252) [diss] x  0.6288 (target:  0.6332, dyad:  0.6332) [tonicity] = 0.3303 (dyad: 0.3326)
+Diss: 0.4498 (dyad: 0.4507)
+2.5s: [
+    Dissonance {
+        dissonance: 0.44982024931773795,
+        tonicity_target: [
+            0.3668379795242695,
+            0.6331620204757304,
+        ],
+        tonicity_context: [
+            0.3711757036995777,
+            0.6288242963004224,
+        ],
+        iterations: 1,
+        num_traversals: 2,
+        num_completed_traversals: 2,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            1,
+            1,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.3220411327171343,
+            0.5252443444129445,
+        ],
+        diss_entropy_per_note: [
+            2.220446049250313e-16,
+            0.0,
+        ],
+        tonicity_entropy_per_note: [
+            0.8243095632223447,
+            0.8243095632223447,
+        ],
+        entropy_between_notes_pre_tonicity: 0.9581025594960625,
+        note_tonicities_target_entropy: 0.9482132319213923,
+        tonicity_context_entropy: 0.9515705534971848,
+        tonicities_dyadic_only: [
+            0.3668379795242695,
+            0.6331620204757304,
+        ],
+        diss_per_note_dyadic_only: [
+            0.3220411327171343,
+            0.5252443444129445,
+        ],
+    },
+]
+
+Graph diss: 3 notes
+Iteration 1: 3 traversals so far, 0 completed, 6 next
+Iteration 2: 9 traversals so far, 12 completed, 0 next
+     0.00c:  0.3275 (dyad:  0.6841) [diss] x  0.2298 (target:  0.2263, dyad:  0.2613) [tonicity] = 0.0753 (dyad: 0.1788)
+   500.00c:  0.4091 (dyad:  0.8120) [diss] x  0.3312 (target:  0.3311, dyad:  0.3395) [tonicity] = 0.1355 (dyad: 0.2756)
+  1000.00c:  0.4846 (dyad:  0.9457) [diss] x  0.4390 (target:  0.4425, dyad:  0.3992) [tonicity] = 0.2127 (dyad: 0.3775)
+Diss: 0.4235 (dyad: 0.8319)
+2.5s: [
+    Dissonance {
+        dissonance: 0.4234962449041869,
+        tonicity_target: [
+            0.22631234458366453,
+            0.33114719113397034,
+            0.44254046428236504,
+        ],
+        tonicity_context: [
+            0.22979853027314517,
+            0.33121840424589943,
+            0.4389830654809554,
+        ],
+        iterations: 2,
+        num_traversals: 9,
+        num_completed_traversals: 12,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            4,
+            4,
+            4,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.3275130671690545,
+            0.4090639646142031,
+            0.48463079002007764,
+        ],
+        diss_entropy_per_note: [
+            1.9735925039789795,
+            1.9979242827905555,
+            1.986481179282869,
+        ],
+        tonicity_entropy_per_note: [
+            3.465669331665365,
+            3.3203857305011932,
+            3.14706755863146,
+        ],
+        entropy_between_notes_pre_tonicity: 1.5668856793894554,
+        note_tonicities_target_entropy: 1.5336056172749666,
+        tonicity_context_entropy: 1.5369490372655819,
+        tonicities_dyadic_only: [
+            0.2613435176029808,
+            0.33946215776608896,
+            0.3991943246309302,
+        ],
+        diss_per_note_dyadic_only: [
+            0.6841025772324902,
+            0.8119629335607519,
+            0.945689285949255,
+        ],
+    },
+]
+
+Graph diss: 4 notes
+Iteration 1: 4 traversals so far, 0 completed, 12 next
+Iteration 2: 16 traversals so far, 0 completed, 48 next
+Iteration 3: 64 traversals so far, 144 completed, 0 next
+     0.00c:  0.3033 (dyad:  1.0111) [diss] x  0.1748 (target:  0.1723, dyad:  0.2105) [tonicity] = 0.0530 (dyad: 0.2129)
+   500.00c:  0.3729 (dyad:  1.1125) [diss] x  0.2298 (target:  0.2291, dyad:  0.2380) [tonicity] = 0.0857 (dyad: 0.2648)
+  1000.00c:  0.4154 (dyad:  1.1925) [diss] x  0.2787 (target:  0.2797, dyad:  0.2639) [tonicity] = 0.1158 (dyad: 0.3147)
+  1500.00c:  0.4390 (dyad:  1.2608) [diss] x  0.3166 (target:  0.3189, dyad:  0.2875) [tonicity] = 0.1390 (dyad: 0.3625)
+Diss: 0.3935 (dyad: 1.1549)
+2.5s: [
+    Dissonance {
+        dissonance: 0.3935270660000169,
+        tonicity_target: [
+            0.17226055298847612,
+            0.22914157478861305,
+            0.27970424652712866,
+            0.31889362569578217,
+        ],
+        tonicity_context: [
+            0.17479289875397486,
+            0.2298210335034557,
+            0.2787366370855648,
+            0.3166494306570046,
+        ],
+        iterations: 3,
+        num_traversals: 64,
+        num_completed_traversals: 144,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            36,
+            36,
+            36,
+            36,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.3033330269471304,
+            0.3729225750552728,
+            0.4153966444215091,
+            0.43901829005351733,
+        ],
+        diss_entropy_per_note: [
+            5.1370760406398075,
+            5.14764735268663,
+            5.152686358060809,
+            5.133107330246695,
+        ],
+        tonicity_entropy_per_note: [
+            6.761331555010042,
+            6.627791222004558,
+            6.522154693300811,
+            6.412869589640599,
+        ],
+        entropy_between_notes_pre_tonicity: 1.9865169624130345,
+        note_tonicities_target_entropy: 1.9640788657058872,
+        tonicity_context_entropy: 1.9664277445613934,
+        tonicities_dyadic_only: [
+            0.2105349908213532,
+            0.2379994065391641,
+            0.26392286466227366,
+            0.28754273797720903,
+        ],
+        diss_per_note_dyadic_only: [
+            1.0111081560884987,
+            1.112526822606507,
+            1.1924879823892065,
+            1.2608034827476773,
+        ],
+    },
+]
+
+Graph diss: 5 notes
+Iteration 1: 5 traversals so far, 0 completed, 20 next
+Iteration 2: 25 traversals so far, 0 completed, 120 next
+Iteration 3: 145 traversals so far, 0 completed, 720 next
+Iteration 4: 865 traversals so far, 2880 completed, 0 next
+     0.00c:  0.2765 (dyad:  1.2967) [diss] x  0.1380 (target:  0.1359, dyad:  0.1738) [tonicity] = 0.0382 (dyad: 0.2253)
+   500.00c:  0.3464 (dyad:  1.3992) [diss] x  0.1794 (target:  0.1787, dyad:  0.1895) [tonicity] = 0.0621 (dyad: 0.2651)
+  1000.00c:  0.3857 (dyad:  1.4618) [diss] x  0.2087 (target:  0.2090, dyad:  0.1988) [tonicity] = 0.0805 (dyad: 0.2906)
+  1500.00c:  0.3933 (dyad:  1.4899) [diss] x  0.2252 (target:  0.2261, dyad:  0.2103) [tonicity] = 0.0886 (dyad: 0.3133)
+  2000.00c:  0.4085 (dyad:  1.5529) [diss] x  0.2486 (target:  0.2503, dyad:  0.2277) [tonicity] = 0.1016 (dyad: 0.3535)
+Diss: 0.3710 (dyad: 1.4479)
+2.5s: [
+    Dissonance {
+        dissonance: 0.3709638996639141,
+        tonicity_target: [
+            0.13592103376406747,
+            0.17871821732367713,
+            0.20903549276188732,
+            0.2260602895707548,
+            0.2502649665796134,
+        ],
+        tonicity_context: [
+            0.1380083923065208,
+            0.1794114668168805,
+            0.2087411635286041,
+            0.22521138124326961,
+            0.24862759610472496,
+        ],
+        iterations: 4,
+        num_traversals: 865,
+        num_completed_traversals: 2880,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            576,
+            576,
+            576,
+            576,
+            576,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.27645279461102534,
+            0.34636854795028005,
+            0.3857396727728541,
+            0.3933197854504083,
+            0.4085176626004357,
+        ],
+        diss_entropy_per_note: [
+            9.128721743766121,
+            9.131982086614059,
+            9.140268192956158,
+            9.129879040914956,
+            9.11727847528996,
+        ],
+        tonicity_entropy_per_note: [
+            10.75216386043072,
+            10.614509746485885,
+            10.542538537020574,
+            10.478162396904894,
+            10.418823576369897,
+        ],
+        entropy_between_notes_pre_tonicity: 2.308935090266285,
+        note_tonicities_target_entropy: 2.2924539497573084,
+        tonicity_context_entropy: 2.2943927149712415,
+        tonicities_dyadic_only: [
+            0.17376067110983634,
+            0.18947196297489757,
+            0.19880729977946093,
+            0.21029743908049342,
+            0.22766262705531176,
+        ],
+        diss_per_note_dyadic_only: [
+            1.2966874542562803,
+            1.399248397970993,
+            1.4617561655957207,
+            1.4899290313991722,
+            1.5528823241141836,
+        ],
+    },
+]
+
+Graph diss: 6 notes
+Iteration 1: 6 traversals so far, 0 completed, 30 next
+Iteration 2: 36 traversals so far, 0 completed, 240 next
+Iteration 3: 276 traversals so far, 0 completed, 2160 next
+Iteration 4: 2436 traversals so far, 0 completed, 17280 next
+Iteration 5: 19716 traversals so far, 86400 completed, 0 next
+     0.00c:  0.2517 (dyad:  1.5438) [diss] x  0.1144 (target:  0.1126, dyad:  0.1493) [tonicity] = 0.0288 (dyad: 0.2304)
+   500.00c:  0.3187 (dyad:  1.6411) [diss] x  0.1454 (target:  0.1446, dyad:  0.1571) [tonicity] = 0.0463 (dyad: 0.2578)
+  1000.00c:  0.3615 (dyad:  1.7093) [diss] x  0.1700 (target:  0.1701, dyad:  0.1632) [tonicity] = 0.0614 (dyad: 0.2789)
+  1500.00c:  0.3708 (dyad:  1.7264) [diss] x  0.1800 (target:  0.1805, dyad:  0.1669) [tonicity] = 0.0668 (dyad: 0.2881)
+  2000.00c:  0.3747 (dyad:  1.7520) [diss] x  0.1916 (target:  0.1925, dyad:  0.1762) [tonicity] = 0.0718 (dyad: 0.3087)
+  2500.00c:  0.3727 (dyad:  1.7838) [diss] x  0.1986 (target:  0.1997, dyad:  0.1875) [tonicity] = 0.0740 (dyad: 0.3344)
+Diss: 0.3492 (dyad: 1.6982)
+2.5s: [
+    Dissonance {
+        dissonance: 0.3491553720644963,
+        tonicity_target: [
+            0.11263446772515946,
+            0.1446459180166654,
+            0.17009667203799048,
+            0.1804702411842639,
+            0.19248205660063353,
+            0.1996706444352872,
+        ],
+        tonicity_context: [
+            0.1143945549839462,
+            0.1453632391675179,
+            0.1699849403507761,
+            0.18002059271335052,
+            0.19164112582614148,
+            0.19859554695826764,
+        ],
+        iterations: 5,
+        num_traversals: 19716,
+        num_completed_traversals: 86400,
+        num_incomplete_traversals: 0,
+        num_completed_traversals_per_note: [
+            14400,
+            14400,
+            14400,
+            14400,
+            14400,
+            14400,
+        ],
+        avg_diss_per_traversal_per_note: [
+            0.2517167555536528,
+            0.31870130722294765,
+            0.3614817620002252,
+            0.3707946491344155,
+            0.3747129689407367,
+            0.37274424893606584,
+        ],
+        diss_entropy_per_note: [
+            13.759230507006317,
+            13.759562177182643,
+            13.771415210951979,
+            13.766700157052725,
+            13.758564979984063,
+            13.731173246285687,
+        ],
+        tonicity_entropy_per_note: [
+            15.332435899985,
+            15.216096874290539,
+            15.152381975563333,
+            15.108262835052843,
+            15.059756519672082,
+            15.027316434717243,
+        ],
+        entropy_between_notes_pre_tonicity: 2.5719262692776814,
+        note_tonicities_target_entropy: 2.5604567009050982,
+        tonicity_context_entropy: 2.56207820238024,
+        tonicities_dyadic_only: [
+            0.14927303035905187,
+            0.1570597331841143,
+            0.16317205271101312,
+            0.1668535307211009,
+            0.17618422125029137,
+            0.18745743177442847,
+        ],
+        diss_per_note_dyadic_only: [
+            1.5437784551300873,
+            1.6411233803389331,
+            1.7092767352394393,
+            1.7264402661264486,
+            1.7519511371455638,
+            1.7837987807730964,
+        ],
+    },
+]
+test polyadic::tests::test_scaling_number_of_notes ... ok
+
+successes:
+
+successes:
+    polyadic::tests::test_scaling_number_of_notes
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 16.73s
+
+
+running 0 tests
+
+successes:
+
+successes:
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+successes:
+
+successes:
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
