@@ -4,11 +4,12 @@
 //!
 //! Otherwise, the changes made to the algorithm would not be applied.
 
-use compute::predict::PolynomialRegressor;
-use rayon::prelude::*;
+
 use std::sync::OnceLock;
 
-use crate::{roughness_codegen::*, sethares_with_harms, tonicity_codegen::*, utils::cents_to_hz};
+use compute::predict::PolynomialRegressor;
+
+use crate::{sethares_with_harms, utils::cents_to_hz, roughness_codegen::*, tonicity_codegen::*};
 
 /// How many harmonics to use in the precalculated (normalized) sethares roughness score for
 /// tonicity dyad lookup.
@@ -24,8 +25,6 @@ const NUM_HARMS_ROUGHNESS: u32 = 31;
 /// roughness because of how accurate the 1-cent resolution lookup is. (Creds to @hyperbolekillsme)
 ///
 /// Increasing this value increases the precalculation time of the dyad lookup table.
-///
-/// **⚠️ This value must be a multiple of 2!**
 const NUM_SUB_CENT_SAMPLES: usize = 20;
 
 const HARMS_ADD_OCTAVES_TONALITY: u32 = 5;
@@ -52,16 +51,16 @@ pub struct DyadLookup {
 
     /// Linearly offset such that the minimum roughness is 0, and the max roughness is 1.
     ///
-    /// Use for an absolute dissonance measure between 0 and 1.
+    /// Final dissonance calculation should use this so that values are easily scalable.
     sethares_add: [f64; 10801],
 
     /// Similar to `sethares_roughness` but normalized by degree 9 polynomial regressions such that
-    /// all 10 octaves have almost identical dissonance scores and the peak roughness around each
-    /// octave is about equal (though there is still a slight falloff).
+    /// all 10 octaves have the same dissonance score and the peak roughness around each octave is
+    /// approximately equal.
     ///
     /// Normalized roughness is between 1 and 2.
     ///
-    /// Used for calculating dyadic tonicity.
+    /// Used for tonality discernment.
     sethares_normalized_roughness: [f64; 10801],
 }
 
@@ -81,26 +80,6 @@ pub enum RoughnessType {
     Additive,
 }
 
-/// Generates a Gaussian kernel with `num_bins` bins and standard deviation `sigma`.
-///
-/// Kernel normalized such that sum of all bins is 1.
-///
-/// Returns a vector of length `num_bins`, symmetric around the center.
-fn gaussian_kernel(num_bins: usize, sigma: f64) -> Vec<f64> {
-    let mut kernel = vec![0f64; num_bins];
-    let half = num_bins as isize / 2;
-    let mut sum = 0.0;
-    for i in 0..num_bins {
-        let x = (i as isize - half) as f64;
-        kernel[i] = (-0.5 * (x * x) / (sigma * sigma)).exp();
-        sum += kernel[i];
-    }
-    for i in 0..num_bins {
-        kernel[i] /= sum;
-    }
-    kernel
-}
-
 impl DyadLookup {
     pub fn get() -> &'static DyadLookup {
         DYAD_LOOKUP.get_or_init(|| {
@@ -118,134 +97,58 @@ impl DyadLookup {
     /// Recomputes the dyad roughness table from scratch (for updating codegen cache).
     ///
     /// Only run this when dyad roughness algo changes.
-    ///
-    /// ⚠️ Do not call from WASM.
-    #[cfg(not(target_family = "wasm"))]
     pub fn recompute() -> &'static DyadLookup {
-        assert!(
-            NUM_SUB_CENT_SAMPLES % 2 == 0,
-            "NUM_SUB_CENT_SAMPLES must be a multiple of 2"
-        );
         DYAD_LOOKUP.get_or_init(|| {
-            use rayon::iter::IntoParallelIterator;
-
             let octave_cents = [
                 0.0, 1200.0, 2400.0, 3600.0, 4800.0, 6000.0, 7200.0, 8400.0, 9600.0, 10800.0,
             ];
-            // 1 cent resolution sethares roughness values for 9 octaves.
             let mut sethares_roughness = [0f64; 10801];
-
-            // Used for normalized roughness for dyadic tonicity calculation.
-            let mut sethares_roughness_tonicity = [0f64; 10801];
-
-            let mut min_rough = f64::MAX;
-            let mut max_rough = f64::MIN;
+            let mut sethares_roughness_tonality = [0f64; 10801]; // for normalized roughness for tonality calculation.
+            let mut freqs = [440.0, 440.0];
+            let mut min = f64::MAX;
+            let mut max = f64::MIN;
 
             let mut peak_roughness_around_octave = [0f64; 10];
 
-            // Using parallel iterator to speed up computation.
-            // Collects a vec of (roughness, roughness_tonicity) pairs for each sub-cent value.
-            let hi_res_roughness_tonicity: Vec<(f64, f64)> = (0..=(10800 * NUM_SUB_CENT_SAMPLES))
-                .into_par_iter()
-                .map(|partial_cents| {
-                    // We assume all dyads are computed w.r.t. A4 as the lower note.
-                    //
-                    // The lower interval limit effect is added later in the polyadic algorithm.
-                    let freq = cents_to_hz(
-                        440.0,
-                        (partial_cents as f64) / (NUM_SUB_CENT_SAMPLES as f64),
-                    );
-                    let roughness = sethares_with_harms(&[440.0, freq], NUM_HARMS_ROUGHNESS, 1, 0.86, true);
+            for cents in 0..=10800 {
+                let mut sum_roughness = 0.0;
+                let mut sum_roughness_tonality = 0.0;
 
-                    let roughness_tonicity = sethares_with_harms(
-                        &[440.0, freq],
+                for sub_cent in 0..NUM_SUB_CENT_SAMPLES {
+                    freqs[1] = cents_to_hz(
+                        440.0,
+                        cents as f64 + (sub_cent as f64 + 0.5) / (NUM_SUB_CENT_SAMPLES as f64),
+                    );
+                    sum_roughness +=
+                        sethares_with_harms(&freqs, NUM_HARMS_ROUGHNESS, 1, 0.86, true);
+                    sum_roughness_tonality += sethares_with_harms(
+                        &freqs,
                         NUM_HARMS_TONALITY,
                         HARMS_ADD_OCTAVES_TONALITY,
                         AMP_MULT_TONALITY,
                         true,
                     );
-                    (roughness, roughness_tonicity)
-                })
-                .collect();
-
-            // First round of smoothing: uniform average every 1/2 cent bucket.
-
-            println!("Computed {} sub-cent raw roughness values", hi_res_roughness_tonicity.len());
-
-            let mut sethares_roughness_half_cent_res = [0f64; 10800 * 2 + 1];
-            let mut sethares_roughness_tonicity_half_cent_res = [0f64; 10800 * 2 + 1];
-
-            for half_cents in 0..=(10800 * 2) {
-                // make sure the half-cent bucket is centered at 0 and 0.5.
-                let start =
-                    ((half_cents * NUM_SUB_CENT_SAMPLES / 2) as isize - 5isize).max(0) as usize;
-                let end = (start + 9 - 5).min(10800 * NUM_SUB_CENT_SAMPLES);
-                let mut sum = 0.0;
-                let mut sum_tonicity = 0.0;
-                for i in start..=end {
-                    let (roughness, roughness_tonicity) = hi_res_roughness_tonicity[i];
-                    sum += roughness;
-                    sum_tonicity += roughness_tonicity;
                 }
-                sethares_roughness_half_cent_res[half_cents] = sum / (end - start + 1) as f64;
-                sethares_roughness_tonicity_half_cent_res[half_cents] =
-                    sum_tonicity / (end - start + 1) as f64;
-            }
 
-            // Second round of smoothing: model human tolerance to detunings & model increased
-            // tolerances for low-complexity intervals.
-            //
-            // Average each 1/2-cent roughness weighted by
-            //
-            //   (+/- 20c gaussian kernel with sigma = 15 cents) * exp(-roughness * 4)
-            //
-            // These values are computed every 1 cent to form the final 1-cent resolution
-            // sethares_roughness and sethares_roughness_tonicity tables.
-
-            let gaussian_41_9 = gaussian_kernel(41, 15.0);
-            let half_gaussian: isize = gaussian_41_9.len() as isize / 2; // index of center of kernel
-            for cents in 0isize..=10800 {
-                let mut sum = 0.0;
-                let mut weight_sum = 0.0;
-                let mut sum_tonicity = 0.0;
-                let mut weight_sum_tonicity = 0.0;
-
-                let idx_half_cents_start = (cents * 2 - half_gaussian).max(0);
-                let idx_half_cents_end = (cents * 2 + half_gaussian).min(10800 * 2);
-                for idx_half_cents in idx_half_cents_start..=idx_half_cents_end {
-                    let idx_half_cents = idx_half_cents as usize;
-                    let roughness = sethares_roughness_half_cent_res[idx_half_cents as usize];
-                    let gaussian_weight = gaussian_41_9
-                        [(idx_half_cents as isize - cents * 2 + half_gaussian) as usize];
-                    let weight = gaussian_weight * (-roughness * 4.0).exp();
-                    sum += sethares_roughness_half_cent_res[idx_half_cents] * weight;
-                    weight_sum += weight;
-
-                    let roughness_tonicity =
-                        sethares_roughness_tonicity_half_cent_res[idx_half_cents as usize];
-                    let weight_tonicity = gaussian_weight * (-roughness_tonicity * 2.0).exp();
-                    sum_tonicity +=
-                        sethares_roughness_tonicity_half_cent_res[idx_half_cents] * weight_tonicity;
-                    weight_sum_tonicity += weight_tonicity;
-                }
-                sethares_roughness[cents as usize] = sum / weight_sum;
-                sethares_roughness_tonicity[cents as usize] = sum_tonicity / weight_sum_tonicity;
+                sethares_roughness[cents] = sum_roughness / (NUM_SUB_CENT_SAMPLES as f64);
+                sethares_roughness_tonality[cents] =
+                    sum_roughness_tonality / (NUM_SUB_CENT_SAMPLES as f64);
 
                 let near_octave_above = cents % 1200 <= 200;
                 let near_octave_below = cents % 1200 >= 1000;
-                let octave = cents as usize / 1200 + if near_octave_below { 1 } else { 0 };
+                let octave = cents / 1200 + if near_octave_below { 1 } else { 0 };
 
                 if near_octave_above || near_octave_below {
-                    if peak_roughness_around_octave[octave] < sethares_roughness_tonicity[cents as usize] {
-                        peak_roughness_around_octave[octave] = sethares_roughness_tonicity[cents as usize];
+                    if peak_roughness_around_octave[octave] < sethares_roughness_tonality[cents] {
+                        peak_roughness_around_octave[octave] = sethares_roughness_tonality[cents];
                     }
                 }
 
-                if sethares_roughness[cents as usize] < min_rough {
-                    min_rough = sethares_roughness[cents as usize];
+                if sethares_roughness[cents] < min {
+                    min = sethares_roughness[cents];
                 }
-                if sethares_roughness[cents as usize] > max_rough {
-                    max_rough = sethares_roughness[cents as usize];
+                if sethares_roughness[cents] > max {
+                    max = sethares_roughness[cents];
                 }
             }
 
@@ -256,16 +159,16 @@ impl DyadLookup {
             octave_regressor.fit(
                 &octave_cents,
                 &[
-                    sethares_roughness_tonicity[0],
-                    sethares_roughness_tonicity[1200],
-                    sethares_roughness_tonicity[2400],
-                    sethares_roughness_tonicity[3600],
-                    sethares_roughness_tonicity[4800],
-                    sethares_roughness_tonicity[6000],
-                    sethares_roughness_tonicity[7200],
-                    sethares_roughness_tonicity[8400],
-                    sethares_roughness_tonicity[9600],
-                    sethares_roughness_tonicity[10800],
+                    sethares_roughness_tonality[0],
+                    sethares_roughness_tonality[1200],
+                    sethares_roughness_tonality[2400],
+                    sethares_roughness_tonality[3600],
+                    sethares_roughness_tonality[4800],
+                    sethares_roughness_tonality[6000],
+                    sethares_roughness_tonality[7200],
+                    sethares_roughness_tonality[8400],
+                    sethares_roughness_tonality[9600],
+                    sethares_roughness_tonality[10800],
                 ],
             );
 
@@ -280,26 +183,26 @@ impl DyadLookup {
             for cents in 0..=10800 {
                 let mut width = upper_bound_regression[cents] - lower_bound_regression[cents];
                 if width < 0.0001 {
-                    width = 0.0001; // tonicity detection above 7 octaves interval has some wonky asymptotes.
+                    width = 0.0001; // tonality detection above 7 octaves interval has some wonky asymptotes.
                 }
                 sethares_normalized_roughness[cents] =
-                    (sethares_roughness_tonicity[cents] - lower_bound_regression[cents]) / width
+                    (sethares_roughness_tonality[cents] - lower_bound_regression[cents]) / width
                         + 1.0;
             }
 
             let mut sethares_mult = [0f64; 10801];
             // multiplier required to reach desired 1st octave roughness after fitting min to 1.
             let octave_roughness_multiplier =
-                (OCT_ROUGHNESS + min_rough - 1.0) / (sethares_roughness[1200]);
+                (OCT_ROUGHNESS + min - 1.0) / (sethares_roughness[1200]);
 
             for cents in 0..=10800 {
                 sethares_mult[cents] =
-                    sethares_roughness[cents] * octave_roughness_multiplier + (1.0 - min_rough);
+                    sethares_roughness[cents] * octave_roughness_multiplier + (1.0 - min);
             }
 
             let mut sethares_add = [0f64; 10801];
             for cents in 0..=10800 {
-                sethares_add[cents] = (sethares_roughness[cents] - min_rough) / (max_rough - min_rough);
+                sethares_add[cents] = (sethares_roughness[cents] - min) / (max - min);
             }
 
             Box::new(DyadLookup {
@@ -307,13 +210,17 @@ impl DyadLookup {
                 sethares_normalized_roughness,
                 sethares_mult,
                 sethares_add,
-                roughness_max: max_rough,
-                roughness_min: min_rough,
+                roughness_max: max,
+                roughness_min: min,
             })
         })
     }
 
     /// Obtains the linearly interpolated sethares roughness measure from an interval of `cents`.
+    ///
+    /// If using for dyad tonality calculation, set `for_tonality` to true.
+    ///
+    /// It will used the normalized roughness score.
     pub fn get_roughness(cents: f64, rough_type: RoughnessType) -> f64 {
         let roughness = match rough_type {
             RoughnessType::TonicityNormalized => DyadLookup::get().sethares_normalized_roughness,
@@ -357,10 +264,9 @@ pub struct TonicityLookup {
     /// Tonicity is relative to the lower note.
     raw_tonicity: [f64; 9601],
 
-    /// The per-octave normalized tonicity. Since tonicity calculation is done by inverting
-    /// intervals about the octave, there is a bias where intervals in the upper half of that octave
-    /// will have higher tonicity than the lower half, since the wider the interval, the lower its
-    /// roughness.
+    /// The per-octave normalized tonicity. Since tonality inversion is done about the octave, there
+    /// is a bias where intervals in the upper half of that octave will have higher tonicity than
+    /// the lower half, by virtue that the wider the interval, the lower its roughness.
     ///
     /// This undoes that by fitting a 5th order polynomial to model the bias, and subtracting the
     /// bias from the raw tonicity, and re-centering it at 0.5.
@@ -378,15 +284,29 @@ pub struct TonicityLookup {
 }
 
 fn compute_smooth_tonicity(normalized: &[f64; 9601]) -> [f64; 9601] {
-    const KERNEL_BINS: usize = 41;
-    const KERNEL_SIGMA: f64 = 20.0;
-    let kernel = gaussian_kernel(KERNEL_BINS, KERNEL_SIGMA);
-    let kernel_half = KERNEL_BINS as isize / 2;
+    const KERNEL_BINS: usize = 21;
+    const KERNEL_SIGMA: f64 = 5.0;
+    let mut kernel = [0f64; KERNEL_BINS];
+    let kernel_half = KERNEL_BINS / 2;
+    let mut kernel_sum = 0.0;
+    for i in 0..KERNEL_BINS {
+        let x = (i as isize - kernel_half as isize) as f64;
+        kernel[i] = (-0.5 * (x * x) / (KERNEL_SIGMA * KERNEL_SIGMA)).exp();
+        kernel_sum += kernel[i];
+    }
+    for i in 0..KERNEL_BINS {
+        kernel[i] /= kernel_sum;
+    }
     let mut smooth_tonicity = [0f64; 9601];
     for i in 0..=9600 {
         let mut sum = 0.0;
         for k in 0..KERNEL_BINS {
-            let index = ((i + k) as isize - kernel_half).clamp(0, 9600isize) as usize;
+            let index = if i + k >= kernel_half {
+                i + k - kernel_half
+            } else {
+                0
+            };
+            let index = if index <= 9600 { index } else { 9600 };
             sum += normalized[index] * kernel[k];
         }
         smooth_tonicity[i] = sum;
@@ -574,8 +494,7 @@ mod tests {
 
     /// Recomputes and exports the sethares roughness codegen & CSV.
     ///
-    /// Originally this took around 5 minutes, but with rayon parallel iterator it is now reduced to
-    /// 30 seconds :)
+    /// Takes about 5 minutes.
     #[test]
     fn calculate_roughness() {
         let dyad_lookup = DyadLookup::recompute();
@@ -585,8 +504,7 @@ mod tests {
         ))
         .unwrap();
 
-        csv_file
-            .write_all(b"cents,roughness,scaled mult,scaled add,normalized\n")
+        csv_file.write_all(b"cents,roughness,scaled mult,scaled add,normalized\n")
             .unwrap();
         for cents in 0..=10800 {
             let roughness = dyad_lookup.sethares_roughness[cents];
@@ -647,9 +565,7 @@ mod tests {
             "dyad_tonicity_{NUM_HARMS_TONALITY}_{HARMS_ADD_OCTAVES_TONALITY}_{AMP_MULT_TONALITY}.csv"
         ))
         .unwrap();
-        csv_file
-            .write_all(b"cents,tonicity,normalized,smooth\n")
-            .unwrap();
+        csv_file.write_all(b"cents,tonicity,normalized,smooth\n").unwrap();
         for half_cents in 0..=9600 {
             let line = format!(
                 "{:.1},{},{},{}\n",

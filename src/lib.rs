@@ -2,15 +2,17 @@ mod dyad_lookup;
 mod harmonic_context;
 mod polyadic;
 mod utils;
+mod roughness_codegen;
+mod tonicity_codegen;
+mod tree_gen;
 
-use core::num;
 use std::collections::HashMap;
 
 use dyad_lookup::{DyadLookup, RoughnessType, TonicityLookup};
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
-// When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
+    // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
 #[cfg(feature = "wee_alloc")]
 #[global_allocator]
@@ -38,7 +40,7 @@ const S_2: f64 = 18.96;
 /// Pre load things that need to be pre-calculated.
 pub fn load() -> bool {
     println!("Loading dyad lookup...");
-    DyadLookup::get_roughness(700.0, RoughnessType::TonalityNormalized);
+    DyadLookup::get_roughness(700.0, RoughnessType::TonicityNormalized);
     println!("Loading tonicity lookup...");
     TonicityLookup::dyad_tonicity(701.9);
     println!("Load complete.");
