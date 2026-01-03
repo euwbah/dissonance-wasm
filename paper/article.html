@@ -1109,7 +1109,7 @@ Diss: 0.4638
 <p>The subtree tonicity score is solely computed as the sum of global tonicities of all nodes in the subtree, there is not enough interaction between the subtree tonicity and the rest of the model.</p>
 <ul>
 <li>The analogue of subtree tonicity is the subtree complexity. Notice that subtree complexity is directly affected by three information sources at each subtree: edge complexity, subtree complexities of its children, and local tonicity scores obtained from subtree tonicity.</li>
-<li>Compare that to what active information sources affect subtree tonicity: subtree tonicities of its children and global tonicity context. There is a very indirect recursion from the aggregation of tree complexities that affects the global tonicity context which in turn affects the subtree tonicities, but this only happens once every update step, rather than at every node traversal.</li>
+<li>Compare that to the active information sources that affect subtree tonicity: subtree tonicities of its children and global tonicity context. There is a very indirect recursion from the aggregation of tree complexities that affects the global tonicity context which in turn affects the subtree tonicities, but this only happens once every update step, rather than at every node traversal.</li>
 </ul>
 </li>
 <li>
