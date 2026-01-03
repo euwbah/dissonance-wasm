@@ -30,6 +30,13 @@ const LOCAL_TONICITY_TEMP: f64 = 0.7;
 ///
 /// Using a smaller value than the heuristic models the idea that newer notes are always less
 /// accepted/certain than notes already present in the pitch memory.
+///
+/// HOW TO TUNE: If this value is too high, new candidate notes will too quickly be accepted into
+/// the pitch memory/as a new root.
+///
+/// If this value is too low, the new candidate note can have such low tonicity that calculations
+/// involving tonicity context (e.g. global tonicity alignment and tonicity update using softmax)
+/// become unstable.
 const NEW_CANDIDATE_TONICITY_RATIO: f64 = 0.2;
 
 /// A parameter k in [-1, 1] describing how much more precedence edge complexity (of the edge
@@ -74,20 +81,30 @@ const COMPLEXITY_LIKELIHOOD_SCALING: f64 = 1.0;
 /// be affected.
 const DEEP_TREE_LIKELIHOOD_PENALTY: f64 = 2.2;
 
-/// How much more likely is a subtree if the parent of the subtree has global tonicity 1.0 and
-/// subtree root has global tonicity 0.0, than if the parent had global tonicity 0.0 and
-/// subtree root had global tonicity 1.0?
+/// Controls the weight of global tonicity alignment, i.e., how much more likely is a subtree if the
+/// parent of the subtree has global tonicity 1.0 and subtree root has global tonicity 0.0, than if
+/// the parent had global tonicity 0.0 and subtree root had global tonicity 1.0.
 ///
 /// A value of 1.0 means that global tonicity context does not affect likelihood.
 ///
-/// A value equal to [DYADIC_TONICITY_LIKELIHOOD_SCALING] means that global tonicity context
-/// matters about as much as dyadic tonicity alignment.
+/// A value equal to [DYADIC_TONICITY_LIKELIHOOD_SCALING] means that global tonicity context matters
+/// about as much as dyadic tonicity alignment.
 ///
-/// HOW TO TUNE: Increasing this value will increase the major-minor triad dissonance gap, but will
-/// make tonicity scores more confident. Additionally (unlike [DYADIC_TONICITY_LIKELIHOOD_SCALING]),
-/// increasing this will increase the stubbornness of the global tonicity context, so you may want to
-/// decrease global tonicity context smoothing.
-const GLOBAL_TONICITY_LIKELIHOOD_SCALING: f64 = (2u128 << 12) as f64;
+/// HOW TO TUNE: Increasing this value will increase the major-minor triad dissonance gap, and make
+/// global tonicity scores more confident by increasing the variation in likelihood between
+/// interpretation trees.
+///
+/// If this value is too high, the global tonicity alignment affects the likelihood of
+/// interpretation trees, which in turn affects global tonicity context. If
+/// [TONICITY_CONTEXT_TEMPERATURE_TARGET] is too low (opinionated), or if
+/// [NEW_CANDIDATE_TONICITY_RATIO] is too low (where very low tonicity scores are assigned to new
+/// notes), it is posible to get a feedback loop where tonicity becomes asymptotically 1.0 for one
+/// note and 0.0 for the rest. This can be balanced slighly by increasing the softmax temperature
+/// [TONICITY_CONTEXT_TEMPERATURE_TARGET].
+///
+/// If this value is too low, the global tonicity scores will not sufficiently affect likelihood of
+/// trees, which may make the model insensitive to the current harmonic context/perceived root.
+const GLOBAL_TONICITY_LIKELIHOOD_SCALING: f64 = (2u128 << 8) as f64;
 
 /// How much more likely is a subtree if the parent-child dyad connecting the subtree to its parent
 /// has parent dyad tonicity 1.0, than if the parent dyad tonicity was 0.0? (Relative to the
@@ -123,7 +140,20 @@ const LOW_NOTE_ROOT_LIKELIHOOD_SCALING: f64 = 1.04;
 /// target tonicity calculation.
 ///
 /// Lower temperature = more opinionated.
-const TONICITY_CONTEXT_TEMPERATURE_TARGET: f64 = 0.5;
+///
+/// HOW TO TUNE: If this value is too low, the global tonicity scores will be too opinionated. If
+/// [NEW_CANDIDATE_TONICITY_RATIO] is low, then a new note will enter the global tonicity context
+/// with very low score, which will skew the global tonicity context very heavily towards the
+/// argmax. If [GLOBAL_TONICITY_LIKELIHOOD_SCALING] is too high, there can be a feedback loop which
+/// causes only one note to have the majority of the tonicity score.
+///
+/// If this value is too high, the global tonicity scores will be too uniform, which will cause the
+/// model to lose the ability to make contextually informed dissonance ratings. To counteract the
+/// uniformity of global tonicity context in dissonance calculation (without changing
+/// [GLOBAL_TONICITY_LIKELIHOOD_SCALING]), you can increase [TONICITY_CONTEXT_TEMPERATURE_DISS]
+/// which only affects the final dissonance calculation (but the effect of global tonicity alignment
+/// will still be diluted).
+const TONICITY_CONTEXT_TEMPERATURE_TARGET: f64 = 0.8;
 
 /// Softmax temperature applied to global tonicity context. The softmax of global tonicities weights
 /// the final dissonance contribution for each root.
@@ -429,6 +459,61 @@ impl GraphDissDebug {
             trees_sorted_asc_contrib: BTreeSet::new(),
         }
     }
+
+    pub fn print(&self, cents: &[f64], show_top_n_contributing_trees: usize) {
+        let sum_exp_likelihood = self
+            .trees_sorted_asc_contrib
+            .iter()
+            .map(|tree| tree.likelihood.exp())
+            .sum::<f64>();
+        for (root_idx, root) in cents.iter().enumerate() {
+            if self.N != 0 {
+                println!(
+                    "Lowest {} complexity trees for root {:>7.2}c:",
+                    self.N, root
+                );
+                for tree in self.n_lowest_comp_trees_per_root[root_idx].iter() {
+                    println!(
+                        " -> complexity {:>6.4}, likelihood {:>6.4}, contrib {:>6.4}:",
+                        tree.complexity,
+                        tree.likelihood,
+                        tree.likelihood.exp() / sum_exp_likelihood * tree.complexity
+                    );
+                    tree.tree.print();
+                }
+                println!(
+                    "Highest {} likelihood trees for root {:>7.2}c:",
+                    self.N, root
+                );
+                for tree in self.n_highest_like_trees_per_root[root_idx].iter().rev() {
+                    println!(
+                        " -> complexity {:>6.4}, likelihood {:>6.4}, contrib {:>6.4}:",
+                        tree.complexity,
+                        tree.likelihood,
+                        tree.likelihood.exp() / sum_exp_likelihood * tree.complexity
+                    );
+                    tree.tree.print();
+                }
+            }
+        }
+        if show_top_n_contributing_trees != 0 {
+            println!("Trees sorted by descending diss contribution:");
+
+            for tree in self
+                .trees_sorted_asc_contrib
+                .iter()
+                .rev()
+                .take(show_top_n_contributing_trees)
+            {
+                let contrib = tree.likelihood.exp() / sum_exp_likelihood * tree.complexity;
+                println!(
+                    " -> contrib {:>6.4} (complexity {:>6.4}, likelihood {:>6.4}):",
+                    contrib, tree.complexity, tree.likelihood
+                );
+                tree.tree.print();
+            }
+        }
+    }
 }
 
 /// Polyadic dissonance by iterating over all spanning trees and root
@@ -443,6 +528,9 @@ impl GraphDissDebug {
 ///
 /// - `tonicity_context`: corresponds to existing tonicity scores of corresponding freqs.
 ///   `tonicity_context` will be normalized to sum to 1.
+///
+///   If the sum of tonicity_context is 0.0 (i.e., no context), the model will assume initialize the
+///   tonicity context based on the dyadic heuristic tonicities computed from [dyadic_tonicity_heur].
 ///
 /// - `smoothing`: How quickly the updated tonicity context should approach the target tonicity. 0.0
 ///   = no smoothing, 1.0 = no movement at all.
@@ -470,7 +558,6 @@ pub fn graph_dissonance(
     tonicity_context: &[f64],
     smoothing: f64,
     elapsed_seconds: f64,
-    target_tonicity_temperature: f64,
     mut debug: Option<&mut GraphDissDebug>,
 ) -> Vec<Dissonance> {
     assert!(
@@ -505,6 +592,13 @@ pub fn graph_dissonance(
         &candidate_cents,
         HEURISTIC_DYAD_TONICITY_TEMP,
     );
+
+    let tonicity_context = if tonicity_context.iter().sum::<f64>() == 0.0 {
+        heuristic_tonicities.tonicities_no_cand.clone()
+    } else {
+        tonicity_context.to_vec()
+    };
+
     let dyad_roughs = heuristic_tonicities.add_roughness_map; // use additive roughness.
     let cand_roughs = heuristic_tonicities.cand_add_roughness_map;
     let dyad_tonics = heuristic_tonicities.tonicity_map;
@@ -633,7 +727,7 @@ pub fn graph_dissonance(
         results.push(compute_interpretation_trees(
             &comp_like_per_root_og_order,
             likelihood_exp_sum,
-            tonicity_context,
+            &tonicity_context,
             smoothing,
             elapsed_seconds,
             debug,
@@ -681,19 +775,12 @@ pub fn graph_dissonance(
         //
         // Other initialization options: preset 0.001 tonicity, 100% heuristic tonicity, etc...
 
-        let curr_candidate_tonicity = heuristic_tonicities.tonicities[candidate_idx][num_notes - 1]
-            * NEW_CANDIDATE_TONICITY_RATIO;
+        let heur_candidate_tonicity = heuristic_tonicities.tonicities[candidate_idx][num_notes - 1];
 
         // The new tonicity context including the candidate note, in original order of `freqs`
         // where the candidate note is at the last index.
-        let new_tonicity_ctx: Vec<f64> = {
-            let scale = 1.0 - curr_candidate_tonicity;
-            tonicity_context
-                .iter()
-                .map(|x| x * scale)
-                .chain(std::iter::once(curr_candidate_tonicity))
-                .collect()
-        };
+        let new_tonicity_ctx: Vec<f64> =
+            scale_candidate_toncity(&tonicity_context, heur_candidate_tonicity);
 
         let st_trees = TREES
             .get(num_notes)
@@ -737,17 +824,20 @@ pub fn graph_dissonance(
 
             let from_is_candidate = idx_from == freqs.len();
 
-            let tonicity_of_existing_note = cand_tonics[idx_to]
+            let idx_of_existing_note = if from_is_candidate { idx_to } else { idx_from };
+
+            let tonicity_of_existing_note = cand_tonics[idx_of_existing_note]
                 .get(candidate_idx)
                 .cloned()
                 .expect("Missing edge in candidate dyadic tonicity lookup!");
 
-            // this function should return the tonicity of the `from` node.
-            if from_is_candidate {
+            let tonicity_of_from = if from_is_candidate {
                 1.0 - tonicity_of_existing_note
             } else {
                 tonicity_of_existing_note
-            }
+            };
+
+            tonicity_of_from
         };
 
         let mut comp_like_per_root_lo_to_hi: Vec<Vec<(f64, f64)>> = vec![vec![]; num_notes];
@@ -757,7 +847,7 @@ pub fn graph_dissonance(
             let (complexity, likelihood) = dfs_st_comp_likelihood(
                 &cents_asc_order,
                 tree,
-                tonicity_context,
+                &new_tonicity_ctx,
                 dyad_comp,
                 dyad_tonicity,
             );
@@ -782,6 +872,23 @@ pub fn graph_dissonance(
     }
 
     results
+}
+
+/// Helper for scaling existing tonicity values & adding candidate tonicity value given the
+/// candidate's heuristic toncity.
+///
+/// - `existing_tonicities`: existing tonicities of notes in original order.
+/// - `heur_candidate_tonicity`: heuristic tonicity of the candidate note.
+///
+/// Returns new tonicity vector including candidate tonicity at the last index.
+fn scale_candidate_toncity(existing_tonicities: &[f64], heur_candidate_tonicity: f64) -> Vec<f64> {
+    let new_cand_tonicity = heur_candidate_tonicity * NEW_CANDIDATE_TONICITY_RATIO;
+    let scale = 1.0 - new_cand_tonicity;
+    existing_tonicities
+        .iter()
+        .map(|x| x * scale)
+        .chain(std::iter::once(new_cand_tonicity))
+        .collect()
 }
 
 #[derive(Clone, Debug)]
@@ -954,12 +1061,12 @@ fn compute_child_likelihood_contribution(
 ///
 /// **IMPORTANT ⚠️⚠️⚠️ USE ASCENDING PITCH ORDER:**
 ///
-///   This function requires input notes to be indexed in ASCENDING PITCH order. The
-///   freqs provided from the visualizer are in no particular order, so a sorted index mapping
-///   must be obtained first.
+///   This function requires input notes to be indexed in ASCENDING PITCH order. The freqs provided
+///   from the visualizer are in no particular order, so a sorted index mapping must be obtained
+///   first.
 ///
-///   The search space of precomputed trees is pruned so that pre-order inversions are capped
-///   at `max_inversions`, which models the natural low-to-high precendence of pitch perception.
+///   The search space of precomputed trees is pruned so that pre-order inversions are capped at
+///   `max_inversions`, which models the natural low-to-high precendence of pitch perception.
 ///
 /// See `paper/article.md` for details.
 ///
@@ -969,7 +1076,8 @@ fn compute_child_likelihood_contribution(
 ///
 /// - `tree`: the spanning tree to evaluate
 ///
-/// - `tonicity_ctx`: tonicity context per node in **ascending pitch order**.
+/// - `tonicity_ctx`: tonicity context per node in **ascending pitch order**. If doing dfs with an
+///   added candidate note, the tonicity context should include the candidate note in ascending pitch order.
 ///
 /// - `dyad_comp`: function that returns the dyadic/edge additive complexity (range 0-1) of (from,
 ///   to) edge in **ascending pitch order**.
@@ -1115,6 +1223,11 @@ pub struct TonicityHeuristic {
     ///
     /// [tonicities of [a, b, c, d], tonicities of [a, b, c, e]]
     pub tonicities: Vec<Tonicities>,
+
+    /// The tonicity score of only the existing notes in `cents`, without considering any candidate notes.
+    ///
+    /// If no candidate notes are provided, this is equivalent to `tonicities[0]`.
+    pub tonicities_no_cand: Tonicities,
 
     /// `tonicity_map` is a lookup of dyad tonicities of the existing notes in `cents`. The key is a
     /// bitstring containing two 1s, where the bit position (from the LSB) corresponds to the
@@ -1287,26 +1400,27 @@ pub fn dyadic_tonicity_heur(
 
     let existing_sum = existing_tonicities.iter().sum::<f64>();
 
-    if candidate_cents.len() == 0 {
-        // Apply softmax on existing_tonicities.
-        //
-        // Normalize sum to 1 first.
-        existing_tonicities = existing_tonicities
+    // Apply softmax on existing_tonicities.
+    //
+    // Normalize sum to 1 first.
+    let tonicities_no_candidates: Vec<f64> = existing_tonicities
+        .iter()
+        .map(|x| x / existing_sum)
+        .collect();
+
+    let max_tonicity = max(tonicities_no_candidates.as_slice());
+
+    let tonicities_no_candidates = softmax(
+        &tonicities_no_candidates
             .iter()
-            .map(|x| x / existing_sum)
-            .collect();
+            .map(|x| (x - max_tonicity) / tonicity_temperature)
+            .collect::<Vec<f64>>(),
+    );
 
-        let max_tonicity = max(existing_tonicities.as_slice());
-
-        let softmax_tonicities = softmax(
-            &existing_tonicities
-                .iter()
-                .map(|x| (x - max_tonicity) / tonicity_temperature)
-                .collect::<Vec<f64>>(),
-        );
-
+    if candidate_cents.len() == 0 {
         return TonicityHeuristic {
-            tonicities: vec![softmax_tonicities],
+            tonicities: vec![tonicities_no_candidates.clone()],
+            tonicities_no_cand: tonicities_no_candidates,
             tonicity_map,
             mult_roughness_map,
             add_roughness_map,
@@ -1377,6 +1491,7 @@ pub fn dyadic_tonicity_heur(
 
     TonicityHeuristic {
         tonicities: tonicities_per_candidate,
+        tonicities_no_cand: tonicities_no_candidates,
         tonicity_map,
         mult_roughness_map,
         add_roughness_map,
@@ -1413,6 +1528,7 @@ mod tests {
     use super::*;
     use crate::utils::cents_to_hz;
     use std::{result, usize};
+    use std::time::Instant;
 
     #[test]
     fn test_dyadic_tonicity() {
@@ -1490,9 +1606,82 @@ mod tests {
             graph_diss(cents, name, 5.0, 1)[0].clone()
         }
 
-        let p4 = dis(&[0.0, 500.0], "P4");
-        let tritone = dis(&[0.0, 600.0], "Tritone");
-        let p5 = dis(&[0.0, 700.0], "P5");
+        // This part tests whether newly added candidate notes with very low toncity cause
+        // asymptotic numerical instability issues, which results in high difference between the
+        // dissonance & tonicity scores obtained from when all 4 notes are evaluated together with
+        // heuristically initialized tonicity vs. when the first 3 notes are existing and the last
+        // note is added as a candidate with very low tonicity (scaled by
+        // `NEW_CANDIDATE_TONICITY_RATIO`)
+        let cents = [0.0, 700.0, 1400.0, 1600.0];
+        let freqs = cents
+            .iter()
+            .map(|x| cents_to_hz(440.0, *x))
+            .collect::<Vec<f64>>();
+
+        let diss_existing =
+            graph_dissonance(&freqs, &[], &vec![0f64; freqs.len()], 0.9, 5.0, None)[0].clone();
+
+        let diss_candidate = graph_dissonance(
+            &freqs[..(freqs.len() - 1)],
+            &[*freqs.last().unwrap()],
+            &vec![0f64; freqs.len() - 1],
+            0.9,
+            5.0,
+            None, // NOTE: debug values are not implemented for candidate graph diss.
+        )[0]
+        .clone();
+        let existing_vs_cand_diss_gap = diss_existing.dissonance - diss_candidate.dissonance;
+
+        // This part is a benchmark where we perform 201 iterations of a 8-note update (which is
+        // about the same complexity as 20 7-note selectCandidate ops with 10 candidates).
+
+        let mut bench_ctx = vec![0.0; 8];
+        const bench_cents_1: [f64; 8] = [
+            // C+7b5#9 voicing: C E F# Bb, E Ab C D#
+            // held for 1000 iterations at 0.01s per iteration.
+            0.0, 400.0, 600.0, 1000.0, 1400.0, 1800.0, 2400.0, 2700.0
+        ];
+        const bench_cents_2: [f64; 8] = [
+            // Fmaj6/9 voicing: F A C D, G A D F
+            0.0, 400.0, 700.0, 900.0, 1400.0, 1600.0, 2100.0, 2400.0
+        ];
+        let bench_freqs_1 = bench_cents_1
+            .iter()
+            .map(|x| cents_to_hz(130.812, *x))
+            .collect::<Vec<f64>>();
+        let bench_freqs_2 = bench_cents_2
+            .iter()
+            .map(|x| cents_to_hz(174.614, *x))
+            .collect::<Vec<f64>>();
+
+        let start_time = Instant::now();
+        for iter in 0..=200 {
+            let freqs = if iter <= 100 {
+                &bench_freqs_1
+            } else {
+                &bench_freqs_2
+            };
+            let res = &graph_dissonance(
+                freqs,
+                &[],
+                &bench_ctx,
+                0.9,
+                0.01,
+                None,
+            )[0];
+            bench_ctx.copy_from_slice(&res.tonicity_context);
+
+            if iter % 10 == 0 {
+                println!(
+                    "Bench iter {}: diss: {}, ctx: {:?}",
+                    iter, res.dissonance, res.tonicity_context
+                );
+            }
+        }
+        let elapsed = start_time.elapsed();
+
+        // This part tests common intervals have a generally accepted relative dissonance ranking.
+
         let min3 = dis(&[0.0, 300.0], "m3");
         let maj3 = dis(&[0.0, 400.0], "M3");
 
@@ -1501,6 +1690,10 @@ mod tests {
 
         let maj = dis(&[0.0, 400.0, 700.0], "Major");
         let min = dis(&[0.0, 300.0, 700.0], "Minor");
+
+        let p4 = dis(&[0.0, 500.0], "P4");
+        let tritone = dis(&[0.0, 600.0], "Tritone");
+        let p5 = dis(&[0.0, 700.0], "P5");
 
         println!("\n\n=============== SANITY METRICS ================\n");
 
@@ -1529,6 +1722,9 @@ mod tests {
         );
         println!(" targ. C conf maj: {}", maj.diss.tonicity_target[0]);
         println!(" targ. C conf min: {}", min.diss.tonicity_target[0]);
+        println!(" existing vs cand: {}", existing_vs_cand_diss_gap);
+
+        println!("\nBenchmark time (201 8-note iters): {} seconds", elapsed.as_secs_f64());
     }
 
     #[test]
@@ -1686,8 +1882,7 @@ mod tests {
             .map(|x| cents_to_hz(440.0, *x))
             .collect::<Vec<f64>>();
         let mut context = if INIT_WITH_DYADIC_HEURISTIC {
-            dyadic_tonicity_heur(440.0, cents, &[], HEURISTIC_DYAD_TONICITY_TEMP).tonicities[0]
-                .clone()
+            vec![0.0; cents.len()] // passing a 0 vector will make graph_dissonance initialize with dyadic tonicity heuristic.
         } else {
             vec![1.0 / cents.len() as f64; cents.len()]
         };
@@ -1706,15 +1901,8 @@ mod tests {
             } else {
                 Some(GraphDissDebug::new(SHOW_N_TREES, cents.len()))
             };
-            let diss = graph_dissonance(
-                &freqs,
-                &[],
-                &context,
-                0.9,
-                elapsed_seconds,
-                0.5,
-                debug.as_mut(),
-            );
+            let diss =
+                graph_dissonance(&freqs, &[], &context, 0.9, elapsed_seconds, debug.as_mut());
 
             results_per_iter.push(GraphDissTestResult {
                 diss: diss[0].clone(),
@@ -1739,58 +1927,7 @@ mod tests {
             // Print the lowest complexity trees per root
 
             if let Some(debug) = debug {
-                let sum_exp_likelihood = debug
-                    .trees_sorted_asc_contrib
-                    .iter()
-                    .map(|tree| tree.likelihood.exp())
-                    .sum::<f64>();
-                for (root_idx, root) in cents.iter().enumerate() {
-                    if SHOW_N_TREES != 0 {
-                        println!(
-                            "Lowest {} complexity trees for root {:>7.2}c:",
-                            debug.N, root
-                        );
-                        for tree in debug.n_lowest_comp_trees_per_root[root_idx].iter() {
-                            println!(
-                                " -> complexity {:>6.4}, likelihood {:>6.4}, contrib {:>6.4}:",
-                                tree.complexity,
-                                tree.likelihood,
-                                tree.likelihood.exp() / sum_exp_likelihood * tree.complexity
-                            );
-                            tree.tree.print();
-                        }
-                        println!(
-                            "Highest {} likelihood trees for root {:>7.2}c:",
-                            debug.N, root
-                        );
-                        for tree in debug.n_highest_like_trees_per_root[root_idx].iter().rev() {
-                            println!(
-                                " -> complexity {:>6.4}, likelihood {:>6.4}, contrib {:>6.4}:",
-                                tree.complexity,
-                                tree.likelihood,
-                                tree.likelihood.exp() / sum_exp_likelihood * tree.complexity
-                            );
-                            tree.tree.print();
-                        }
-                    }
-                }
-                if SHOW_TOP_N_CONTRIBUTING_TREES != 0 {
-                    println!("Trees sorted by descending diss contribution:");
-
-                    for tree in debug
-                        .trees_sorted_asc_contrib
-                        .iter()
-                        .rev()
-                        .take(SHOW_TOP_N_CONTRIBUTING_TREES)
-                    {
-                        let contrib = tree.likelihood.exp() / sum_exp_likelihood * tree.complexity;
-                        println!(
-                            " -> contrib {:>6.4} (complexity {:>6.4}, likelihood {:>6.4}):",
-                            contrib, tree.complexity, tree.likelihood
-                        );
-                        tree.tree.print();
-                    }
-                }
+                debug.print(cents, SHOW_TOP_N_CONTRIBUTING_TREES);
             }
             context = diss[0].tonicity_context.clone();
         }
@@ -1836,7 +1973,7 @@ mod tests {
             .map(|x| cents_to_hz(440.0, *x))
             .collect::<Vec<f64>>();
         let diss =
-            graph_dissonance(&freqs, &[], &vec![0f64; cents.len()], 0.9, 1.0, 0.5, None)[0].clone();
+            graph_dissonance(&freqs, &[], &vec![0f64; cents.len()], 0.9, 1.0, None)[0].clone();
         println!("Starting context");
         println!("{:#?}\n", diss);
 
@@ -1848,7 +1985,6 @@ mod tests {
             &diss.tonicity_context,
             0.9,
             1.0,
-            0.5,
             None,
         );
 
@@ -1858,17 +1994,35 @@ mod tests {
     }
 
     #[test]
-    /// This tests the expectation that having [a, b, c, d] as existing notes, and having one
-    /// candidate [d] to add to [a, b, c] should both return almost the same results.
+    /// This tests the difference between having [a, b, c, d] as existing notes, and adding the new
+    /// candidate [d] to [a, b, c].
+    ///
+    /// Since no debug data is available for candidate graph dissonance, we add a simulated version
+    /// with candidate tonicity heuristic initialized to the same value as in candidate
+    /// graph_dissonance.
+    ///
+    /// If the difference between the existing and candidate dissonance & tonicity context scores is
+    /// too high, that could possibly indicate that [GLOBAL_TONICITY_LIKELIHOOD_SCALING] is too
+    /// high, or [TONICITY_CONTEXT_TEMPERATURE_TARGET] is too low.
     fn test_single_candidate_graph_diss_same_treatment() {
+        // the last note is the candidate
         let cents = [0.0, 700.0, 1400.0, 1600.0];
         let freqs = cents
             .iter()
             .map(|x| cents_to_hz(440.0, *x))
             .collect::<Vec<f64>>();
 
-        let diss_existing =
-            graph_dissonance(&freqs, &[], &vec![0f64; freqs.len()], 0.9, 0.1, 0.5, None)[0].clone();
+        let mut debug_existing = Some(GraphDissDebug::new(2, freqs.len()));
+
+        let diss_existing = graph_dissonance(
+            &freqs,
+            &[],
+            &vec![0f64; freqs.len()],
+            0.9,
+            0.1,
+            debug_existing.as_mut(),
+        )[0]
+        .clone();
 
         let diss_candidate = graph_dissonance(
             &freqs[..(freqs.len() - 1)],
@@ -1876,27 +2030,90 @@ mod tests {
             &vec![0f64; freqs.len() - 1],
             0.9,
             0.1,
-            0.5,
-            None,
+            None, // NOTE: debug values are not implemented for candidate graph diss.
+        )[0]
+        .clone();
+
+        let mut debug_candidate_simul = Some(GraphDissDebug::new(2, freqs.len()));
+
+        let heur_dyadic_tonicity_without_cand = &dyadic_tonicity_heur(
+            440.0,
+            &freqs[..(freqs.len() - 1)],
+            &[],
+            HEURISTIC_DYAD_TONICITY_TEMP,
+        )
+        .tonicities_no_cand;
+
+        let heur_tonicity_of_cand = *dyadic_tonicity_heur(
+            440.0,
+            &freqs[..(freqs.len() - 1)],
+            &[*freqs.last().unwrap()],
+            HEURISTIC_DYAD_TONICITY_TEMP,
+        )
+        .tonicities[0]
+            .last()
+            .unwrap();
+
+        let heur_tonicities_with_cand_as_new_note =
+            scale_candidate_toncity(heur_dyadic_tonicity_without_cand, heur_tonicity_of_cand);
+
+        let diss_cand_simul = graph_dissonance(
+            &freqs,
+            &[],
+            &heur_tonicities_with_cand_as_new_note,
+            0.9,
+            0.1,
+            debug_candidate_simul.as_mut(),
         )[0]
         .clone();
 
         println!("\nExisting: {:#?}", diss_existing);
+        debug_existing.unwrap().print(&cents, 10);
+
         println!("\nCandidate: {:#?}", diss_candidate);
+
+        println!("\nCandidate simulated: {:#?}", diss_cand_simul);
+        debug_candidate_simul.unwrap().print(&cents, 10);
+
         println!(
-            "\nDissonance difference: {}",
+            "\nInit with simul heur tonicities: {:#?}",
+            heur_tonicities_with_cand_as_new_note
+        );
+
+        println!(
+            "Dissonance difference existing vs. candidate: {}",
             diss_existing.dissonance - diss_candidate.dissonance
+        );
+
+        println!(
+            "Dissonance difference candidate vs. simulated cand.: {}\n",
+            diss_candidate.dissonance - diss_cand_simul.dissonance
+        );
+
+        println!("  Tonicities existing: {:?}", diss_existing.tonicity_target);
+        println!(
+            "      Tonicities cand: {:?}",
+            diss_candidate.tonicity_target
+        );
+        println!(
+            "Tonicities cand simul: {:?}",
+            diss_cand_simul.tonicity_target
+        );
+        println!(
+            "\nCand tonicity - heur cand init tonicity (+ve is better): {}",
+            diss_candidate.tonicity_target.last().unwrap()
+                - heur_tonicities_with_cand_as_new_note.last().unwrap()
         );
     }
 
     /// This tests the expectation that having [a, b, c, d] as existing notes, and having one
-    /// candidate [d] to add to [a, b, c] should both return almost the same results.
+    /// candidate [d] to add to [a, b, c] should both return the same results for [dyadic_tonicity_heur].
     #[test]
     fn test_single_candidate_tonicity_heur_same_treatment() {
         let cents = [0.0, 700.0, 1400.0, 1600.0];
         let freqs = cents
             .iter()
-            .map(|x| cents_to_hz(440.0, *x))
+            .map(|x| cents_to_hz(261.63, *x))
             .collect::<Vec<f64>>();
 
         let heur_existing = dyadic_tonicity_heur(261.63, &freqs, &[], HEURISTIC_DYAD_TONICITY_TEMP);
@@ -1908,8 +2125,8 @@ mod tests {
             HEURISTIC_DYAD_TONICITY_TEMP,
         );
 
-        println!("\nExisting: {:#?}", heur_existing);
-        println!("\nCandidate: {:#?}", heur_candidate);
+        println!("\nExisting: {:#?}", heur_existing.tonicities[0]);
+        println!("\nCandidate: {:#?}", heur_candidate.tonicities[0]);
     }
 
     /// Ensures that the tonicity heuristic should return the same result no matter the order of the

@@ -33,3 +33,4 @@ memoizable
 subroot
 melspectrograms
 Xenharmonic
+rs

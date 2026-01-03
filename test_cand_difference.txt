@@ -1,0 +1,409 @@
+
+running 1 test
+
+Existing: Dissonance {
+    dissonance: 0.38671698928632675,
+    tonicity_target: [
+        0.30219788278174875,
+        0.2513064268661769,
+        0.22154705775721745,
+        0.22494863259485684,
+    ],
+    tonicity_context: [
+        0.2550321355453758,
+        0.2502029405592821,
+        0.24705049767046214,
+        0.24771442622487994,
+    ],
+}
+Lowest 2 complexity trees for root    0.00c:
+ -> complexity 0.2916, likelihood 0.7576, contrib 0.0047:
+0
+├── 2
+│   └── 1
+└── 3
+
+ -> complexity 0.2954, likelihood 0.6893, contrib 0.0044:
+0
+└── 3
+    └── 1
+        └── 2
+
+Highest 2 likelihood trees for root    0.00c:
+ -> complexity 0.3005, likelihood 1.4950, contrib 0.0101:
+0
+├── 1
+├── 2
+└── 3
+
+ -> complexity 0.3145, likelihood 1.0587, contrib 0.0068:
+0
+├── 1
+│   └── 2
+└── 3
+
+Lowest 2 complexity trees for root  700.00c:
+ -> complexity 0.3266, likelihood 0.5817, contrib 0.0044:
+1
+└── 0
+    ├── 2
+    └── 3
+
+ -> complexity 0.3267, likelihood 0.8378, contrib 0.0057:
+1
+└── 2
+    └── 0
+        └── 3
+
+Highest 2 likelihood trees for root  700.00c:
+ -> complexity 0.3705, likelihood 1.0258, contrib 0.0078:
+1
+├── 0
+├── 2
+└── 3
+
+ -> complexity 0.3521, likelihood 0.9540, contrib 0.0069:
+1
+├── 2
+└── 3
+    └── 0
+
+Lowest 2 complexity trees for root 1400.00c:
+ -> complexity 0.3004, likelihood 0.7337, contrib 0.0047:
+2
+└── 0
+    ├── 1
+    └── 3
+
+ -> complexity 0.3004, likelihood 0.6080, contrib 0.0042:
+2
+└── 0
+    └── 3
+        └── 1
+
+Highest 2 likelihood trees for root 1400.00c:
+ -> complexity 0.4376, likelihood 0.7815, contrib 0.0072:
+2
+├── 0
+├── 1
+└── 3
+
+ -> complexity 0.4432, likelihood 0.7759, contrib 0.0073:
+2
+├── 0
+│   └── 1
+└── 3
+
+Lowest 2 complexity trees for root 1600.00c:
+ -> complexity 0.2721, likelihood 0.6089, contrib 0.0038:
+3
+└── 0
+    └── 2
+        └── 1
+
+ -> complexity 0.2755, likelihood 0.7418, contrib 0.0044:
+3
+└── 0
+    ├── 1
+    └── 2
+
+Highest 2 likelihood trees for root 1600.00c:
+ -> complexity 0.4385, likelihood 0.8347, contrib 0.0076:
+3
+├── 0
+├── 1
+└── 2
+
+ -> complexity 0.2755, likelihood 0.7418, contrib 0.0044:
+3
+└── 0
+    ├── 1
+    └── 2
+
+Trees sorted by descending diss contribution:
+ -> contrib 0.0101 (complexity 0.3005, likelihood 1.4950):
+0
+├── 1
+├── 2
+└── 3
+
+ -> contrib 0.0094 (complexity 0.5781, likelihood 0.7633):
+2
+└── 3
+    ├── 0
+    └── 1
+
+ -> contrib 0.0089 (complexity 0.5986, likelihood 0.6810):
+2
+└── 3
+    └── 1
+        └── 0
+
+ -> contrib 0.0087 (complexity 0.5634, likelihood 0.7164):
+2
+└── 3
+    └── 0
+        └── 1
+
+ -> contrib 0.0079 (complexity 0.5776, likelihood 0.5902):
+3
+└── 2
+    ├── 0
+    └── 1
+
+ -> contrib 0.0078 (complexity 0.5753, likelihood 0.5896):
+3
+└── 2
+    └── 0
+        └── 1
+
+ -> contrib 0.0078 (complexity 0.3705, likelihood 1.0258):
+1
+├── 0
+├── 2
+└── 3
+
+ -> contrib 0.0076 (complexity 0.4385, likelihood 0.8347):
+3
+├── 0
+├── 1
+└── 2
+
+ -> contrib 0.0075 (complexity 0.5864, likelihood 0.5327):
+3
+└── 2
+    └── 1
+        └── 0
+
+ -> contrib 0.0075 (complexity 0.4929, likelihood 0.7049):
+2
+├── 0
+└── 3
+    └── 1
+
+
+Candidate: Dissonance {
+    dissonance: 0.37539430725146833,
+    tonicity_target: [
+        0.44655179438958476,
+        0.2644744045527425,
+        0.20564694329973607,
+        0.08332685775793676,
+    ],
+    tonicity_context: [
+        0.3279920370047249,
+        0.3144670006636532,
+        0.30641596178087993,
+        0.05112500055074198,
+    ],
+}
+
+Candidate simulated: Dissonance {
+    dissonance: 0.3775183752791276,
+    tonicity_target: [
+        0.4379008985682042,
+        0.2652577594419169,
+        0.21227204613095196,
+        0.08456929585892688,
+    ],
+    tonicity_context: [
+        0.3235848153243499,
+        0.3125231302119424,
+        0.3124152383215121,
+        0.05147681614219567,
+    ],
+}
+Lowest 2 complexity trees for root    0.00c:
+ -> complexity 0.2954, likelihood 1.3606, contrib 0.0054:
+0
+└── 3
+    └── 1
+        └── 2
+
+ -> complexity 0.2982, likelihood 1.6235, contrib 0.0070:
+0
+├── 2
+│   └── 1
+└── 3
+
+Highest 2 likelihood trees for root    0.00c:
+ -> complexity 0.3058, likelihood 3.2005, contrib 0.0349:
+0
+├── 1
+├── 2
+└── 3
+
+ -> complexity 0.3244, likelihood 2.2747, contrib 0.0147:
+0
+├── 1
+│   └── 2
+└── 3
+
+Lowest 2 complexity trees for root  700.00c:
+ -> complexity 0.3267, likelihood 0.8975, contrib 0.0037:
+1
+└── 2
+    └── 0
+        └── 3
+
+ -> complexity 0.3294, likelihood 0.7313, contrib 0.0032:
+1
+└── 0
+    ├── 2
+    └── 3
+
+Highest 2 likelihood trees for root  700.00c:
+ -> complexity 0.3669, likelihood 2.2003, contrib 0.0154:
+1
+├── 0
+├── 2
+└── 3
+
+ -> complexity 0.3533, likelihood 2.0148, contrib 0.0123:
+1
+├── 2
+│   └── 0
+└── 3
+
+Lowest 2 complexity trees for root 1400.00c:
+ -> complexity 0.3004, likelihood 0.7497, contrib 0.0030:
+2
+└── 0
+    └── 3
+        └── 1
+
+ -> complexity 0.3056, likelihood 0.9204, contrib 0.0036:
+2
+└── 0
+    ├── 1
+    └── 3
+
+Highest 2 likelihood trees for root 1400.00c:
+ -> complexity 0.4154, likelihood 1.7118, contrib 0.0107:
+2
+├── 0
+├── 1
+└── 3
+
+ -> complexity 0.4115, likelihood 1.6900, contrib 0.0104:
+2
+├── 0
+│   └── 1
+└── 3
+
+Lowest 2 complexity trees for root 1600.00c:
+ -> complexity 0.2721, likelihood 0.4489, contrib 0.0020:
+3
+└── 0
+    └── 2
+        └── 1
+
+ -> complexity 0.2755, likelihood 0.5467, contrib 0.0022:
+3
+└── 0
+    ├── 1
+    └── 2
+
+Highest 2 likelihood trees for root 1600.00c:
+ -> complexity 0.2755, likelihood 0.5467, contrib 0.0022:
+3
+└── 0
+    ├── 1
+    └── 2
+
+ -> complexity 0.3899, likelihood 0.5070, contrib 0.0030:
+3
+└── 1
+    ├── 0
+    └── 2
+
+Trees sorted by descending diss contribution:
+ -> contrib 0.0349 (complexity 0.3058, likelihood 3.2005):
+0
+├── 1
+├── 2
+└── 3
+
+ -> contrib 0.0154 (complexity 0.3669, likelihood 2.2003):
+1
+├── 0
+├── 2
+└── 3
+
+ -> contrib 0.0147 (complexity 0.3244, likelihood 2.2747):
+0
+├── 1
+│   └── 2
+└── 3
+
+ -> contrib 0.0123 (complexity 0.3533, likelihood 2.0148):
+1
+├── 2
+│   └── 0
+└── 3
+
+ -> contrib 0.0108 (complexity 0.5634, likelihood 1.4153):
+2
+└── 3
+    └── 0
+        └── 1
+
+ -> contrib 0.0108 (complexity 0.5986, likelihood 1.3547):
+2
+└── 3
+    └── 1
+        └── 0
+
+ -> contrib 0.0107 (complexity 0.5780, likelihood 1.3822):
+2
+└── 3
+    ├── 0
+    └── 1
+
+ -> contrib 0.0107 (complexity 0.4154, likelihood 1.7118):
+2
+├── 0
+├── 1
+└── 3
+
+ -> contrib 0.0105 (complexity 0.3519, likelihood 1.8618):
+1
+├── 2
+└── 3
+    └── 0
+
+ -> contrib 0.0104 (complexity 0.4115, likelihood 1.6900):
+2
+├── 0
+│   └── 1
+└── 3
+
+
+Init with simul heur tonicities: [
+    0.31866409306635857,
+    0.31455766249629424,
+    0.3167258901634512,
+    0.05005235427389596,
+]
+Dissonance difference existing vs. candidate: 0.011322682034858422
+Dissonance difference candidate vs. simulated cand.: -0.0021240680276592983
+
+  Tonicities existing: [0.30219788278174875, 0.2513064268661769, 0.22154705775721745, 0.22494863259485684]
+      Tonicities cand: [0.44655179438958476, 0.2644744045527425, 0.20564694329973607, 0.08332685775793676]
+Tonicities cand simul: [0.4379008985682042, 0.2652577594419169, 0.21227204613095196, 0.08456929585892688]
+
+Cand tonicity - heur cand init tonicity (+ve is better): 0.0332745034840408
+test polyadic::tests::test_single_candidate_graph_diss_same_treatment ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 1.21s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
