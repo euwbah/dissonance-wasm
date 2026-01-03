@@ -21,7 +21,7 @@ I needed a concordance metric that can, for any arbitrary EDO (equal division of
 2. **Keep track** of the current **harmonic context** and consider the **element of time**. Since music is contextual, prior notes must be able to affect the current model of concordance and tonality perception, and the root detection/concordance score should evolve over time even as a single chord is held.
    1. Ideally, rhythmic entrainment and strong/weak beat detection should be added too, but that's an equally huge problem to tackle later on.
 
-3. Does **not have symmetry/negative harmony/duality assumptions**. The same chord voicing spelt in upwards intervals (e.g. C E G is a major triad spelt as M3 + m3 up from C) and downwards intervals (e.g., C Ab F being - M3 - m3 down from C) should not necessarily give the result in the same concordance score or detected root.
+3. Does **not have symmetry/negative harmony/duality assumptions**. The same chord voicing spelt in upwards intervals (e.g. C E G is a major triad spelt as M3 + m3 up from C) and downwards intervals (e.g., C Ab F being - M3 - m3 down from C) should not necessarily output in the same concordance scores or detected roots.
 
 4. Perform some sort of **root detection**. Doesn't have to be perfect (which requires encoding cultural entrainment perfectly), but good enough to detect the root within $\pm 1$ fifths away from the actual root, so that my visualizer can display the correct enharmonic spellings of notes played (e.g., in 31edo, if I play a C major chord with A# approximating $7/4$, I would rather have the A# displayed as Bb< according to the conventions of HEWM, ASCII version of HEJI).
 
