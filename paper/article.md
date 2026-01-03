@@ -195,7 +195,7 @@ The initial tonicity heuristic can be thought of as an attempt to answer this qu
 
 ### Base case: Dyadic tonicity
 
-For root perception, otonality first comes to mind. First a **vague** definition: we consider an interval to be **otonal** (as in overtones) if the top note can be seen as part of the harmonic series built from the bottom note. For various possible reasons, the top note in an otonal dyad is, more often than average, perceived relative to the bottom note. In a context-free vacuum, the bottom note of an otonal dyad is more "rooted", the same way if a dyad is utonal (as in undertones), the top note is more "rooted". (E.g., sing Do-Mi, and sing Mi-Do (or Le-Do) in a different key. Repeat a few times in random keys. Which note feels more like the root?)
+For root perception, otonality first comes to mind. First a **vague** definition: we consider an interval to be **otonal** (as in overtones) if the top note can be seen as part of the harmonic series built from the bottom note. For various possible reasons, the top note in an otonal dyad is, more often than average, perceived relative to the bottom note. In a context-free vacuum, the bottom note of an otonal dyad is more "rooted", the same way a dyad is utonal (as in undertones) if the top note is more "rooted". (E.g., sing Do-Mi, and sing Mi-Do (or Le-Do) in a different key. Repeat a few times in random keys. Which note feels more like the root?)
 
 > E.g., in a perfect fifth, C-G, we think of C as the root and G as the fifth. If we invert the interval across the octave so that G is now below C, then the perfect fourth G-C is utonal, and we still may think of C as the root and G as a fourth below the root (or historically, the C is a dissonant suspension that should resolve to B and/or D, then G is the root).
 
@@ -229,7 +229,7 @@ However, there are two things that prevented me from taking this approach:
 
 2. I don't think that otonality can substitute for tonicity/root perception.
 
-Rather than otonality, I thought about what other properties I could exploit to highlight the assymetry between "root" and "non-root" notes. Specifically, I was drawn to the asymmetry of the roughness curve itself.
+Rather than otonality, I thought about what other properties I could exploit to highlight the asymmetry between "root" and "non-root" notes. Specifically, I was drawn to the asymmetry of the roughness curve itself.
 
 To show what I mean by "asymmetry", let's suppose that:
 
