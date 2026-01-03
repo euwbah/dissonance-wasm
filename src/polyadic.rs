@@ -1486,7 +1486,6 @@ mod tests {
     /// (e.g., whether results agree with intuition or not).
     #[test]
     fn test_sanity_metrics() {
-
         fn dis(cents: &[f64], name: &str) -> GraphDissTestResult {
             graph_diss(cents, name, 5.0, 1)[0].clone()
         }
@@ -1500,7 +1499,6 @@ mod tests {
         let maj_high = dis(&[3600.0, 4000.0, 4300.0], "Major +3 oct");
         let maj_low = dis(&[-3600.0, -3200.0, -2900.0], "Major -3 oct");
 
-
         let maj = dis(&[0.0, 400.0, 700.0], "Major");
         let min = dis(&[0.0, 300.0, 700.0], "Minor");
 
@@ -1509,11 +1507,26 @@ mod tests {
         let min_maj_triad_gap = min.diss.dissonance - maj.diss.dissonance;
         let min_maj_dyad_gap = min3.diss.dissonance - maj3.diss.dissonance;
         println!("        min - maj: {}", min_maj_triad_gap);
-        println!(" min - maj scaled: {}", min_maj_triad_gap / min_maj_dyad_gap);
-        println!("     tritone - p4: {}", tritone.diss.dissonance - p4.diss.dissonance);
-        println!("          p4 - p5: {}", p4.diss.dissonance - p5.diss.dissonance);
-        println!("  lower intv. lim: {}", maj_low.diss.dissonance - maj_high.diss.dissonance);
-        println!("  P5 tonicity gap: {}", p5.diss.tonicity_target[0] - p5.diss.tonicity_target[1]);
+        println!(
+            " min - maj scaled: {}",
+            min_maj_triad_gap / min_maj_dyad_gap
+        );
+        println!(
+            "     tritone - p4: {}",
+            tritone.diss.dissonance - p4.diss.dissonance
+        );
+        println!(
+            "          p4 - p5: {}",
+            p4.diss.dissonance - p5.diss.dissonance
+        );
+        println!(
+            "  lower intv. lim: {}",
+            maj_low.diss.dissonance - maj_high.diss.dissonance
+        );
+        println!(
+            "  P5 tonicity gap: {}",
+            p5.diss.tonicity_target[0] - p5.diss.tonicity_target[1]
+        );
         println!(" targ. C conf maj: {}", maj.diss.tonicity_target[0]);
         println!(" targ. C conf min: {}", min.diss.tonicity_target[0]);
     }
@@ -1571,6 +1584,19 @@ mod tests {
         graph_diss(
             &[0.0, 900.0, 1300.0, 1600.0, 2200.0],
             "C13b9 terrible voicing",
+            time,
+            iters,
+        );
+
+        graph_diss(
+            &[0.0, 400.0, 700.0, 1100.0, 1400.0, 1800.0, 2100.0],
+            "Cmaj13#11",
+            time,
+            iters,
+        );
+        graph_diss(
+            &[0.0, 300.0, 700.0, 1000.0, 1400.0, 1700.0, 2100.0],
+            "Cmin13",
             time,
             iters,
         );
@@ -1637,10 +1663,15 @@ mod tests {
     #[derive(Clone, Debug)]
     struct GraphDissTestResult {
         diss: Dissonance,
-        debug: Option<GraphDissDebug>
+        debug: Option<GraphDissDebug>,
     }
 
-    fn graph_diss(cents: &[f64], name: &str, elapsed_seconds: f64, iters: usize) -> Vec<GraphDissTestResult> {
+    fn graph_diss(
+        cents: &[f64],
+        name: &str,
+        elapsed_seconds: f64,
+        iters: usize,
+    ) -> Vec<GraphDissTestResult> {
         // if non-zero, show this many lowest complexity trees per root
         const SHOW_N_TREES: usize = 2;
 
@@ -1687,7 +1718,7 @@ mod tests {
 
             results_per_iter.push(GraphDissTestResult {
                 diss: diss[0].clone(),
-                debug: debug.clone()
+                debug: debug.clone(),
             });
 
             println!("Iteration {}/{iters}", i + 1);
@@ -1746,7 +1777,12 @@ mod tests {
                 if SHOW_TOP_N_CONTRIBUTING_TREES != 0 {
                     println!("Trees sorted by descending diss contribution:");
 
-                    for tree in debug.trees_sorted_asc_contrib.iter().rev().take(SHOW_TOP_N_CONTRIBUTING_TREES) {
+                    for tree in debug
+                        .trees_sorted_asc_contrib
+                        .iter()
+                        .rev()
+                        .take(SHOW_TOP_N_CONTRIBUTING_TREES)
+                    {
                         let contrib = tree.likelihood.exp() / sum_exp_likelihood * tree.complexity;
                         println!(
                             " -> contrib {:>6.4} (complexity {:>6.4}, likelihood {:>6.4}):",
