@@ -1,5 +1,6 @@
 //! Polyadic dissonance & tonicity of notes.
 
+use core::f64;
 use std::{
     collections::{BTreeSet, HashMap},
     ops::Deref,
@@ -9,7 +10,7 @@ use compute::prelude::{max, softmax};
 
 use crate::{
     dyad_lookup::{DyadLookup, RoughnessType, TonicityLookup},
-    tree_gen::{ST, SubtreeKey, TREES},
+    tree_gen::{ST, SubtreeKey, TREES, is_node_part_of_subtree},
     utils::hz_to_cents,
 };
 
@@ -516,6 +517,30 @@ impl GraphDissDebug {
     }
 }
 
+/// Inline helper function to build a mask table for mapping bitmasks of nodes in ascending pitch
+/// order to bitmasks of nodes in original frequency order (where candidate note, if any, is the
+/// last element).
+///
+/// Input: bitmask of nodes in ascending pitch order where LSB = lowest pitch note.
+///
+/// Output: bitmask of nodes in original frequency order where LSB = freqs[0] (according to
+/// `asc_idx_to_og_idx`)
+#[inline]
+fn build_mask_table(asc_idx_to_og_idx: &[u8]) -> Vec<u8> {
+    let mut table = vec![0u8; 1 << asc_idx_to_og_idx.len()];
+    for m in 0..table.len() {
+        let mut out = 0u8;
+        for asc in 0..asc_idx_to_og_idx.len() {
+            if (m >> asc) & 1 == 1 {
+                let og = asc_idx_to_og_idx[asc];
+                out |= 1 << og;
+            }
+        }
+        table[m] = out;
+    }
+    table
+}
+
 /// Polyadic dissonance by iterating over all spanning trees and root
 ///
 /// ### Parameters
@@ -619,17 +644,17 @@ pub fn graph_dissonance(
         };
 
         // Input key: ascending pitch order idx, Output: original freqs idx.
-        let asc_to_og_idxs = {
+        let asc_to_og_idxs: Vec<u8> = {
             let mut pairs: Vec<(usize, f64)> = cents.iter().cloned().enumerate().collect();
             pairs.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-            pairs.iter().map(|(idx, _)| *idx).collect::<Vec<usize>>()
+            pairs.iter().map(|(idx, _)| *idx as u8).collect::<Vec<_>>()
         };
 
         // Input: original freqs idx, Output: ascending pitch order.
-        let og_to_asc_idx: Vec<usize> = {
+        let og_to_asc_idx: Vec<u8> = {
             let mut inv = vec![0; asc_to_og_idxs.len()];
             for (sorted_idx, &orig_idx) in asc_to_og_idxs.iter().enumerate() {
-                inv[orig_idx] = sorted_idx;
+                inv[orig_idx as usize] = sorted_idx as u8;
             }
             inv
         };
@@ -637,7 +662,7 @@ pub fn graph_dissonance(
         // `tonicity_context` sorted in low-to-high pitch order.
         let sorted_tonicity_ctx: Vec<f64> = asc_to_og_idxs
             .iter()
-            .map(|&idx| tonicity_context[idx])
+            .map(|&idx| tonicity_context[idx as usize])
             .collect();
 
         // No new candidate note: don't use heuristic tonicities, instead use only provided
@@ -649,18 +674,18 @@ pub fn graph_dissonance(
 
         // Function to obtain precomputed dyad complexity of pitches indexed in ASCENDING PITCH
         // order.
-        let dyad_comp = |from: usize, to: usize| {
-            let idx_from = asc_to_og_idxs[from];
-            let idx_to = asc_to_og_idxs[to];
+        let dyad_comp = |from: u8, to: u8| {
+            let idx_from = asc_to_og_idxs[from as usize];
+            let idx_to = asc_to_og_idxs[to as usize];
             let bitmask = (1 << idx_from) | (1 << idx_to);
             *dyad_roughs
                 .get(&bitmask)
                 .expect("Missing edge in precomputed dyadic roughness lookup!")
         };
 
-        let dyad_tonicity = |from: usize, to: usize| {
-            let idx_from = asc_to_og_idxs[from];
-            let idx_to = asc_to_og_idxs[to];
+        let dyad_tonicity = |from: u8, to: u8| {
+            let idx_from = asc_to_og_idxs[from as usize];
+            let idx_to = asc_to_og_idxs[to as usize];
             let bitmask = (1 << idx_from) | (1 << idx_to);
             let lower_idx_tonic = *dyad_tonics
                 .get(&bitmask)
@@ -691,9 +716,13 @@ pub fn graph_dissonance(
                 dyad_comp,
                 dyad_tonicity,
                 &mut memoized_dfs_results,
+                // For non-candidate graph diss, these lookup tables are not required.
+                u8::MAX,
+                &[],
+                &[],
             );
             let exp_likelihood = (like / TONICITY_CONTEXT_TEMPERATURE_TARGET).exp();
-            comp_like_per_root_lo_to_hi[tree.root].push((comp, exp_likelihood));
+            comp_like_per_root_lo_to_hi[tree.root as usize].push((comp, exp_likelihood));
             likelihood_exp_sum += exp_likelihood;
 
             if let Some(d) = &mut debug {
@@ -703,7 +732,7 @@ pub fn graph_dissonance(
                     likelihood: like,
                 };
 
-                let lowest_comp_trees = &mut d.n_lowest_comp_trees_per_root[tree.root];
+                let lowest_comp_trees = &mut d.n_lowest_comp_trees_per_root[tree.root as usize];
                 lowest_comp_trees.insert(TreeResultCompAsc(entry.clone()));
 
                 // Keep only the N lowest complexity trees
@@ -711,7 +740,7 @@ pub fn graph_dissonance(
                     lowest_comp_trees.pop_last();
                 }
 
-                let highest_like_trees = &mut d.n_highest_like_trees_per_root[tree.root];
+                let highest_like_trees = &mut d.n_highest_like_trees_per_root[tree.root as usize];
                 highest_like_trees.insert(TreeResultLikeAsc(entry.clone()));
 
                 while highest_like_trees.len() > d.N {
@@ -724,7 +753,7 @@ pub fn graph_dissonance(
         }
 
         let comp_like_per_root_og_order = (0..num_notes)
-            .map(|i| comp_like_per_root_lo_to_hi[og_to_asc_idx[i]].as_slice())
+            .map(|i| comp_like_per_root_lo_to_hi[og_to_asc_idx[i] as usize].as_slice())
             .collect::<Vec<_>>();
 
         results.push(compute_interpretation_trees(
@@ -742,6 +771,17 @@ pub fn graph_dissonance(
     // If candidates are supplied, we have to repeat the above process with each candidate
     // as the last indexed note provided freqs.
 
+    let mut memoized_dfs_results: HashMap<OGIdxSubtreeKey, DFSResult> = HashMap::new();
+
+    // When testing different candidate notes, high probability that the ordering of notes end up
+    // being the same. Don't recompute the mask table every time.
+    //
+    // - Key: og_to_asc_idxs hash where the i-th 3 bits correspond to og_to_asc_idxs[i]
+    // - Value: mask table mapping asc pitch order bitmask to og order bitmask.
+    //
+    // If og_to_asc_idxs order is same, just reuse the same mask table.
+    let mut memoized_mask_tables: HashMap<u32, Vec<u8>> = HashMap::new();
+
     for candidate_idx in 0..num_candidates {
         let curr_candidate_cents = candidate_cents[candidate_idx];
         let cents_asc_order = {
@@ -750,7 +790,7 @@ pub fn graph_dissonance(
             combined_cents.sort_by(|a, b| a.partial_cmp(b).unwrap());
             combined_cents
         };
-        let asc_to_og_idxs = {
+        let asc_to_og_idxs : Vec<u8> = {
             let mut pairs: Vec<(usize, f64)> = cents
                 .iter()
                 .cloned()
@@ -758,15 +798,27 @@ pub fn graph_dissonance(
                 .collect::<Vec<(usize, f64)>>();
             pairs.push((freqs.len(), curr_candidate_cents));
             pairs.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-            pairs.iter().map(|(idx, _)| *idx).collect::<Vec<usize>>()
+            pairs.iter().map(|(idx, _)| *idx as u8).collect::<Vec<_>>()
         };
 
-        let og_to_asc_idxs: Vec<usize> = {
+        let og_to_asc_idxs: Vec<u8> = {
             let mut inv = vec![0; asc_to_og_idxs.len()];
             for (sorted_idx, &orig_idx) in asc_to_og_idxs.iter().enumerate() {
-                inv[orig_idx] = sorted_idx;
+                inv[orig_idx as usize] = sorted_idx as u8;
             }
             inv
+        };
+
+        let og_to_asc_hash: u32 = og_to_asc_idxs.iter().enumerate().fold(0u32, |acc, (i, &v)| {
+            acc | ((v as u32) << (i * 3))
+        });
+
+        let og_idx_mask_lut = if let Some(mask_table) = memoized_mask_tables.get(&og_to_asc_hash) {
+            mask_table.clone()
+        } else {
+            let mask_table = build_mask_table(&asc_to_og_idxs);
+            memoized_mask_tables.insert(og_to_asc_hash, mask_table.clone());
+            mask_table
         };
 
         // Since we are adding candidate notes, we have to use the dyadic tonicity heuristic to
@@ -790,9 +842,9 @@ pub fn graph_dissonance(
             .expect("No precomputed trees for this number of notes");
 
         // Computes dyad complexities for (from, to) indices based on ascending pitch order.
-        let dyad_comp = |from: usize, to: usize| {
-            let idx_from = asc_to_og_idxs[from];
-            let idx_to = asc_to_og_idxs[to];
+        let dyad_comp = |from: u8, to: u8| {
+            let idx_from = asc_to_og_idxs[from as usize];
+            let idx_to = asc_to_og_idxs[to as usize];
 
             let bitmask = (1 << idx_from) | (1 << idx_to);
 
@@ -802,16 +854,16 @@ pub fn graph_dissonance(
             }
             // implicitly, if idx_from == freqs.len() || idx_to == freqs.len() {
 
-            let existing_pitch_idx = idx_from.min(idx_to);
+            let existing_pitch_idx = idx_from.min(idx_to) as usize;
             cand_roughs[existing_pitch_idx]
                 .get(candidate_idx) // which candidate to use
                 .cloned()
                 .expect("Missing edge in candidate dyadic roughness lookup!")
         };
 
-        let dyad_tonicity = |from: usize, to: usize| {
-            let idx_from = asc_to_og_idxs[from];
-            let idx_to = asc_to_og_idxs[to];
+        let dyad_tonicity = |from: u8, to: u8| {
+            let idx_from = asc_to_og_idxs[from as usize];
+            let idx_to = asc_to_og_idxs[to as usize];
 
             let bitmask = (1 << idx_from) | (1 << idx_to);
 
@@ -825,11 +877,11 @@ pub fn graph_dissonance(
             }
             // implicitly, if idx_from == freqs.len() || idx_to == freqs.len() {
 
-            let from_is_candidate = idx_from == freqs.len();
+            let from_is_candidate = idx_from as usize == freqs.len();
 
             let idx_of_existing_note = if from_is_candidate { idx_to } else { idx_from };
 
-            let tonicity_of_existing_note = cand_tonics[idx_of_existing_note]
+            let tonicity_of_existing_note = cand_tonics[idx_of_existing_note as usize]
                 .get(candidate_idx)
                 .cloned()
                 .expect("Missing edge in candidate dyadic tonicity lookup!");
@@ -846,8 +898,6 @@ pub fn graph_dissonance(
         let mut comp_like_per_root_lo_to_hi: Vec<Vec<(f64, f64)>> = vec![vec![]; num_notes];
         let mut likelihood_exp_sum = 0.0;
 
-        let mut memoized_dfs_results: HashMap<SubtreeKey, DFSResult> = HashMap::new();
-
         for tree in st_trees.iter() {
             let (complexity, likelihood) = dfs_st_comp_likelihood(
                 &cents_asc_order,
@@ -856,15 +906,18 @@ pub fn graph_dissonance(
                 dyad_comp,
                 dyad_tonicity,
                 &mut memoized_dfs_results,
+                candidate_idx as u8,
+                &asc_to_og_idxs,
+                &og_idx_mask_lut,
             );
 
             let exp_likelihood = (likelihood / TONICITY_CONTEXT_TEMPERATURE_TARGET).exp();
-            comp_like_per_root_lo_to_hi[tree.root].push((complexity, exp_likelihood));
+            comp_like_per_root_lo_to_hi[tree.root as usize].push((complexity, exp_likelihood));
             likelihood_exp_sum += exp_likelihood;
         }
 
         let comp_like_per_root_og_order = (0..num_notes)
-            .map(|i| comp_like_per_root_lo_to_hi[og_to_asc_idxs[i]].as_slice())
+            .map(|i| comp_like_per_root_lo_to_hi[og_to_asc_idxs[i] as usize].as_slice())
             .collect::<Vec<_>>();
 
         results.push(compute_interpretation_trees(
@@ -914,7 +967,7 @@ struct DFSResult {
     /// How many notes in this subtree, including root.
     ///
     /// Number of edges = `subtree_size - 1`
-    subtree_size: usize,
+    subtree_size: u8,
 
     /// Likelihood of this subtree interpretation, computed as some aggregate of child likelihood contributions.
     ///
@@ -923,6 +976,12 @@ struct DFSResult {
     ///
     /// If subtree is a single leaf node, this is 1.0.
     subtree_likelihood: f64,
+
+    /// Which candidate frequency was being used to compute this result.
+    ///
+    /// If no candidate frequency appears in this subtree, the result from the previous candidate
+    /// computation can be copied over by updating the candidate_idx.
+    candidate_idx: u8,
 }
 
 /// Computes the absolute contribution of a non-leaf child & its connecting parent-child edge to the
@@ -967,25 +1026,23 @@ fn compute_child_leaf_complexity_contribution(subtree_weight: f64, dyadic_comple
 /// Returns normalized weights summing to 1 in input node order.
 fn compute_subtree_weights(
     unnormalized_child_subtree_tonicities: &[f64],
-    child_subtree_sizes: &[usize],
+    child_subtree_sizes: &[u8],
 ) -> Vec<f64> {
-    let sum_subtree_sizes = child_subtree_sizes.iter().sum::<usize>() as f64;
+    let sum_subtree_sizes = child_subtree_sizes.iter().sum::<u8>() as f64;
     let uniform_weighted_nodes: Vec<f64> = child_subtree_sizes
         .iter()
         .map(|s| *s as f64 / sum_subtree_sizes)
         .collect();
 
     let total_tonicity: f64 = unnormalized_child_subtree_tonicities.iter().sum();
-    let normalized: Vec<f64> = unnormalized_child_subtree_tonicities
-        .iter()
-        .map(|ct| ct / total_tonicity)
-        .collect();
-    let softmax_local_tonicities = softmax(
-        &normalized
-            .iter()
-            .map(|t| t / LOCAL_TONICITY_TEMP)
-            .collect::<Vec<f64>>(),
-    );
+    let mut normalized_and_scaled: Vec<f64> =
+        Vec::with_capacity(unnormalized_child_subtree_tonicities.len());
+
+    for ct in unnormalized_child_subtree_tonicities.iter() {
+        normalized_and_scaled.push(ct / total_tonicity * LOCAL_TONICITY_TEMP);
+    }
+
+    let softmax_local_tonicities = softmax(&normalized_and_scaled);
 
     let weights: Vec<f64> = softmax_local_tonicities
         .iter()
@@ -1031,36 +1088,88 @@ fn compute_child_likelihood_contribution(
     let global_tonicity_alignment_ratio = global_tonicity_alignment_ratio.clamp(1.0 / 50.0, 50.0);
 
     let global_tonicity_logistic = 1.0 / (1.0 + (1.0 - global_tonicity_alignment_ratio).exp());
-    let global_tonicity_alignment =
-        GLOBAL_TONICITY_LIKELIHOOD_SCALING.powf(global_tonicity_logistic - 0.5);
+    let global_tonicity_alignment_ln =
+        GLOBAL_TONICITY_LIKELIHOOD_SCALING.ln() * (global_tonicity_logistic - 0.5);
 
-    let dyadic_tonicity_alignment = DYADIC_TONICITY_LIKELIHOOD_SCALING.powf(dyadic_tonicity - 0.5);
+    let dyadic_tonicity_alignment_ln =
+        DYADIC_TONICITY_LIKELIHOOD_SCALING.ln() * (dyadic_tonicity - 0.5);
 
     // kappa (lambda_i, c_i) in article.md
-    let adjusted_subtree_likelihood = if subtree_complexity == 0.0 {
+    let adjusted_subtree_likelihood_ln = if subtree_complexity == 0.0 {
         // edge case, 0 complexity subtree probably means that the subtree is a leaf node.
         //
         // Deep tree penalty doesn't apply, only applies to non-leaf children.
-        subtree_likelihood
+        subtree_likelihood.ln()
     } else {
-        subtree_likelihood.powf(1.0 + COMPLEXITY_LIKELIHOOD_SCALING * (0.5 - subtree_complexity))
-            * 2.0f64.powf(
-                COMPLEXITY_LIKELIHOOD_BIAS * (0.5 - subtree_complexity)
-                    - DEEP_TREE_LIKELIHOOD_PENALTY,
-            )
+        subtree_likelihood.ln() * (1.0 + COMPLEXITY_LIKELIHOOD_SCALING * (0.5 - subtree_complexity))
+            + f64::consts::LN_2
+                * (COMPLEXITY_LIKELIHOOD_BIAS * (0.5 - subtree_complexity)
+                    - DEEP_TREE_LIKELIHOOD_PENALTY)
     };
 
-    let lower_root_bias =
-        LOW_NOTE_ROOT_LIKELIHOOD_SCALING.powf(parent_child_interval_cents / 1200.0);
+    let lower_root_bias_ln =
+        LOW_NOTE_ROOT_LIKELIHOOD_SCALING.ln() * (parent_child_interval_cents / 1200.0);
 
     // TODO: besides geometric mean, any better aggregation methods?
-    let likelihood = (global_tonicity_alignment
-        * dyadic_tonicity_alignment
-        * adjusted_subtree_likelihood
-        * lower_root_bias)
-        .powf(1.0 / 4.0);
+    let log_likelihood = (global_tonicity_alignment_ln
+        + dyadic_tonicity_alignment_ln
+        + adjusted_subtree_likelihood_ln
+        + lower_root_bias_ln)
+        * 0.25;
 
-    likelihood
+    log_likelihood.exp()
+}
+
+/// Represents SubtreeKey but with node indices remapped to original freq indices + candidate note at
+/// the end, instead of increasing pitch order indexing.
+type OGIdxSubtreeKey = SubtreeKey;
+
+/// The generated [SubtreeKey]s for each [ST] in [TREES] have node index sorted in ascending pitch
+/// order.
+///
+/// However, pitch order may change if candidate note changes, so in order to memoize results across
+/// different candidate choices (where we reuse precomputed trees that do not rely candidate pitch),
+/// we have to store [SubtreeKey]s with node indices remapped to original freq indices and candidate
+/// note at index `freqs.len()`.
+///
+/// - `subtree_key`: the original subtree key with ascending pitch order node indices.
+/// - `asc_idx_to_og_idx`: mapping from ascending pitch order index to original freq index.
+/// - `og_idx_mask_lut`: lookup table to remap bitmask of nodes in ascending pitch order to original
+///   freq order. Generated by [build_mask_table].
+fn remap_subtree_key_to_og_indexing(
+    subtree_key: SubtreeKey,
+    asc_idx_to_og_idx: &[u8],
+    og_idx_mask_lut: &[u8],
+) -> OGIdxSubtreeKey {
+    let mut new_key: SubtreeKey = 0;
+
+    // Bits 0-23: The i-th 3-bit segment from LSB corresponds to the i-th node's parent (or 0 if root).
+    //
+    // Remap each parent idx
+    for node_idx in 0..asc_idx_to_og_idx.len() {
+        let asc_order_parent_idx =
+            ((subtree_key >> (node_idx * 3)) & 0b111) as usize; // 3 bits per node
+
+        let og_order_parent_idx = asc_idx_to_og_idx[asc_order_parent_idx];
+
+        new_key |= (og_order_parent_idx as SubtreeKey) << (node_idx * 3);
+    }
+
+    // Bits 24-31: Relative to bit 24 LSB,, the i-th bit indicates whether the i-th node is part of
+    // the subtree or not. Remaps the bitmask according to og_idx_mask_lut.
+
+    let asc_order_bitmask = ((subtree_key >> 24) & 0xFF) as u8;
+    let og_order_bitmask = og_idx_mask_lut[asc_order_bitmask as usize];
+    new_key |= (og_order_bitmask as SubtreeKey) << 24;
+
+    // Bits 32-34: Remap root node index from asc idx to og idx.
+
+    let asc_order_root_idx = (subtree_key >> 32) & 0b111;
+    let og_order_root_idx = asc_idx_to_og_idx[asc_order_root_idx as usize] as u64;
+    new_key |= og_order_root_idx << 32;
+
+    new_key
+
 }
 
 /// Evaluate spanning tree complexity & likelihood using DFS.
@@ -1083,7 +1192,8 @@ fn compute_child_likelihood_contribution(
 /// - `tree`: the spanning tree to evaluate
 ///
 /// - `tonicity_ctx`: tonicity context per node in **ascending pitch order**. If doing dfs with an
-///   added candidate note, the tonicity context should include the candidate note in ascending pitch order.
+///   added candidate note, the tonicity context should include the candidate note in ascending
+///   pitch order.
 ///
 /// - `dyad_comp`: function that returns the dyadic/edge additive complexity (range 0-1) of (from,
 ///   to) edge in **ascending pitch order**.
@@ -1093,6 +1203,18 @@ fn compute_child_likelihood_contribution(
 ///   tonic is `from`).
 ///
 /// - `memoized_dfs_results`: memoization map to speed up repeated DFS calls on identical subtrees.
+///
+/// - `curr_candidate_idx`: if evaluating multiple candidate notes, this is the index of which
+///   candidate in candidate_freqs is being evaluated. Used to memoize trees across different
+///   candidates. If no candidate notes are supplied, set to u8::MAX = 255.
+///
+/// - `asc_idx_to_og_idx`: Map from ascending index order to original index order in freqs (where
+///   last idx is the candidate frequency). Only used if curr_candidate_idx != u8::MAX, otherwise
+///   just pass an empty slice.
+///
+/// - `og_idx_mask_lut`: Lookup table to remap subtree bitmask from ascending pitch order to
+///   original freq order. Use `build_mask_table` to generate. Only used if curr_candidate_idx !=
+///   u8::MAX, otherwise just pass an empty slice.
 ///
 /// ## Returns
 ///
@@ -1109,16 +1231,19 @@ fn dfs_st_comp_likelihood<F, G>(
     tonicity_ctx: &[f64],
     dyad_comp: F,
     dyad_tonicity: G,
-    memoized_dfs_results: &mut HashMap<SubtreeKey, DFSResult>,
+    memoized_dfs_results: &mut HashMap<OGIdxSubtreeKey, DFSResult>,
+    curr_candidate_idx: u8,
+    asc_idx_to_og_idx: &[u8],
+    og_idx_mask_lut: &[u8],
 ) -> (f64, f64)
 where
-    F: Fn(usize, usize) -> f64,
-    G: Fn(usize, usize) -> f64,
+    F: Fn(u8, u8) -> f64,
+    G: Fn(u8, u8) -> f64,
 {
     // stack contains (node index, children visited?)
     //
     // For post-order traversal.
-    let mut stack: Vec<(usize, bool)> = vec![(tree.root, false)];
+    let mut stack: Vec<(u8, bool)> = vec![(tree.root, false)];
 
     // store computed results per node
     //
@@ -1126,10 +1251,12 @@ where
     let mut results: Vec<Option<DFSResult>> = vec![None; tonicity_ctx.len()];
 
     while let Some((node, visited_children)) = stack.pop() {
+        let node = node as usize;
+
         if !visited_children {
             // `node` children not yet visited: visit the children of node first.
-            stack.push((node, true));
-            for &ch in tree.children[node].iter() {
+            stack.push((node as u8, true));
+            for &ch in tree.children[node as usize].iter() {
                 stack.push((ch, false));
             }
         } else {
@@ -1141,13 +1268,46 @@ where
                     subtree_complexity: 0.0,
                     subtree_size: 1,
                     subtree_likelihood: 1.0,
+                    candidate_idx: curr_candidate_idx
                 });
                 continue;
             }
 
-            if let Some(memoized_result) = memoized_dfs_results.get(&tree.subtree_key[node]) {
-                results[node] = Some(memoized_result.clone());
-                continue;
+            let asc_order_subtree_key = &tree.subtree_key[node];
+            let reidx_subtree_key = if curr_candidate_idx != u8::MAX {
+                remap_subtree_key_to_og_indexing(*asc_order_subtree_key, asc_idx_to_og_idx, og_idx_mask_lut)
+            } else {
+                // We don't have to care about preserving original freqs index through automorphisms if
+                // no candidate notes are being evaluated.
+                *asc_order_subtree_key
+            };
+
+
+            if let Some(memoized_result) = memoized_dfs_results.get_mut(&reidx_subtree_key) {
+                // We can only reuse memoized result if
+                // - Subtree does not contain candidate index, or
+                // - Subtree contains candidate index, but this particular subtree has already been
+                //   computed with curr_candidate_idx.
+
+                let subtree_already_computed_with_curr_cand = memoized_result.candidate_idx == curr_candidate_idx;
+
+                let candidate_in_subtree = is_node_part_of_subtree(reidx_subtree_key, cents_asc_order.len() - 1);
+
+                if !candidate_in_subtree && !subtree_already_computed_with_curr_cand {
+                    // Memoized result can carry forward from previous candidate's computation,
+                    // since candidate is not part of the subtree.
+
+                    memoized_result.candidate_idx = curr_candidate_idx;
+                    results[node] = Some(memoized_result.clone());
+                    continue;
+                } else if subtree_already_computed_with_curr_cand {
+                    // Subtree is already memoized for this candidate, so we can reuse it, whether
+                    // or not it contains the candidate.
+
+                    results[node] = Some(memoized_result.clone());
+                    continue;
+                }
+
             }
 
             // Sum of each child's complexity contribution
@@ -1166,10 +1326,10 @@ where
             for &ch in children {
                 // let (child_ton, child_comp) =
                 //     results[ch].expect("Child result missing. Check if tree is valid");
-                let results = results[ch]
+                let results = results[ch as usize]
                     .as_ref()
                     .expect("Child result missing. Check if tree is valid");
-                let dyadic_complexity = dyad_comp(node, ch);
+                let dyadic_complexity = dyad_comp(node as u8, ch);
 
                 child_subtree_sizes.push(results.subtree_size);
                 child_dyad_complexities.push(dyadic_complexity);
@@ -1181,7 +1341,8 @@ where
                 compute_subtree_weights(&child_subtree_tonicities, &child_subtree_sizes);
 
             for i in 0..children.len() {
-                let results = results[children[i]]
+                let child = children[i] as usize;
+                let results = results[child]
                     .as_ref()
                     .expect("Child result missing. Check if tree is valid");
 
@@ -1201,10 +1362,10 @@ where
                 sum_complexities += child_subtree_complexity;
 
                 let likelihood_contribution = compute_child_likelihood_contribution(
-                    cents_asc_order[children[i]] - cents_asc_order[node],
+                    cents_asc_order[child] - cents_asc_order[node],
                     tonicity_ctx[node],
-                    tonicity_ctx[children[i]],
-                    dyad_tonicity(node, children[i]),
+                    tonicity_ctx[child],
+                    dyad_tonicity(node as u8, child as u8),
                     results.subtree_likelihood,
                     results.subtree_complexity,
                 );
@@ -1216,18 +1377,19 @@ where
             results[node] = Some(DFSResult {
                 subtree_tonicity: tonicity_ctx[node] + child_subtree_tonicities.iter().sum::<f64>(),
                 subtree_complexity: sum_complexities,
-                subtree_size: 1 + child_subtree_sizes.iter().sum::<usize>(),
+                subtree_size: 1 + child_subtree_sizes.iter().sum::<u8>(),
                 subtree_likelihood: mult_likelihoods,
+                candidate_idx: curr_candidate_idx
             });
 
             memoized_dfs_results.insert(
-                tree.subtree_key[node].clone(),
+                reidx_subtree_key,
                 results[node].as_ref().unwrap().clone(),
             );
         }
     }
 
-    let result = results[tree.root]
+    let result = results[tree.root as usize]
         .as_ref()
         .expect("Root result missing. Check if tree is valid");
     (result.subtree_complexity, result.subtree_likelihood)
@@ -1546,8 +1708,8 @@ mod tests {
 
     use super::*;
     use crate::utils::cents_to_hz;
-    use std::{result, usize};
     use std::time::Instant;
+    use std::{result, usize};
 
     #[test]
     fn test_dyadic_tonicity() {
@@ -1658,11 +1820,11 @@ mod tests {
         const bench_cents_1: [f64; 8] = [
             // C+7b5#9 voicing: C E F# Bb, E Ab C D#
             // held for 1000 iterations at 0.01s per iteration.
-            0.0, 400.0, 600.0, 1000.0, 1400.0, 1800.0, 2400.0, 2700.0
+            0.0, 400.0, 600.0, 1000.0, 1400.0, 1800.0, 2400.0, 2700.0,
         ];
         const bench_cents_2: [f64; 8] = [
             // Fmaj6/9 voicing: F A C D, G A D F
-            0.0, 400.0, 700.0, 900.0, 1400.0, 1600.0, 2100.0, 2400.0
+            0.0, 400.0, 700.0, 900.0, 1400.0, 1600.0, 2100.0, 2400.0,
         ];
         let bench_freqs_1 = bench_cents_1
             .iter()
@@ -1680,14 +1842,7 @@ mod tests {
             } else {
                 &bench_freqs_2
             };
-            let res = &graph_dissonance(
-                freqs,
-                &[],
-                &bench_ctx,
-                0.9,
-                0.01,
-                None,
-            )[0];
+            let res = &graph_dissonance(freqs, &[], &bench_ctx, 0.9, 0.01, None)[0];
             bench_ctx.copy_from_slice(&res.tonicity_context);
 
             if iter % 10 == 0 {
@@ -1743,7 +1898,10 @@ mod tests {
         println!(" targ. C conf min: {}", min.diss.tonicity_target[0]);
         println!(" existing vs cand: {}", existing_vs_cand_diss_gap);
 
-        println!("\nBenchmark time (201 8-note iters): {} seconds", elapsed.as_secs_f64());
+        println!(
+            "\nBenchmark time (201 8-note iters): {} seconds",
+            elapsed.as_secs_f64()
+        );
     }
 
     #[test]
@@ -2188,5 +2346,50 @@ mod tests {
             }
         }
         inversions
+    }
+
+    #[test]
+    fn bench_candidate_8_notes() {
+        let cents = vec![0.0, 200.0, 400.0, 700.0, 900.0, 1400.0, 1600.0];
+        let candidate_cents = vec![1200.0, 1800.0, 2100.0, 2400.0, 2700.0];
+        let freqs = cents
+            .iter()
+            .map(|x| cents_to_hz(130.812, *x))
+            .collect::<Vec<f64>>();
+        let candidate_freqs = candidate_cents
+            .iter()
+            .map(|x| cents_to_hz(130.812, *x))
+            .collect::<Vec<f64>>();
+        let start_time = Instant::now();
+        let mut tonicity_context = vec![0.0; freqs.len() + 1];
+        for iter in 0..20 {
+            let cands = graph_dissonance(
+                &freqs,
+                &candidate_freqs,
+                &tonicity_context[..freqs.len()],
+                0.9,
+                0.01,
+                None,
+            );
+
+            let max_tonicity_cand_idx = cands.iter()
+                .enumerate()
+                .max_by(|a, b| {
+                    a.1.tonicity_context
+                        .last()
+                        .unwrap()
+                        .partial_cmp(b.1.tonicity_context.last().unwrap())
+                        .unwrap()
+                })
+                .map(|(idx, _)| idx)
+                .unwrap();
+
+            println!("Bench iter {}: max tonicity cands idx: {}", iter, max_tonicity_cand_idx);
+        }
+        let elapsed = start_time.elapsed();
+        println!(
+            "Benchmark time (20 8-note candidate iters): {} seconds",
+            elapsed.as_secs_f64()
+        );
     }
 }

@@ -820,10 +820,10 @@ Trees sorted by descending diss contribution:
  targ. C conf min: 0.4036680608162869
  existing vs cand: 0.037072373866635755
 
-Benchmark time (201 8-note iters): 15.6722108 seconds
+Benchmark time (201 8-note iters): 2.8748689 seconds
 test polyadic::tests::test_sanity_metrics ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 16.93s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 3.10s
 
 
 running 0 tests

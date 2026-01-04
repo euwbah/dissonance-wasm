@@ -23,8 +23,8 @@ pub static TREES: LazyLock<Vec<Vec<ST>>> = LazyLock::new(|| {
 /// An edge in a ST.
 #[derive(Debug, Clone)]
 pub struct Edge {
-    pub from: usize,
-    pub to: usize,
+    pub from: u8,
+    pub to: u8,
 }
 
 /// A key for representing the entire subtree rooted at a given node.
@@ -44,18 +44,25 @@ pub struct Edge {
 /// - Bits 32-34 (from LSB) store the root node number (0-7).
 pub type SubtreeKey = u64;
 
+/// Check if the given node is part of the subtree represented by the given [SubtreeKey].
+///
+/// `node` is presented as a 0-based index, so valid values are 0 to 7 inclusive.
+pub fn is_node_part_of_subtree(key: SubtreeKey, node: usize) -> bool {
+    key & (1 << (24 + node)) != 0
+}
+
 /// A spanning tree of the complete graph of N notes.
 #[derive(Debug, Clone)]
 pub struct ST {
     /// Which node is the root.
-    pub root: usize,
+    pub root: u8,
 
     /// Lookup of which parent each node has in the ST.
     ///
     /// The 0-based index corresponds which node index to get the parent of.
     ///
     /// Root node has no parent.
-    pub parents: Vec<Option<usize>>,
+    pub parents: Vec<Option<u8>>,
 
     /// Unique [SubtreeKey] identifier of the subtree at each node. The index corresponds to which
     /// node (0 to 7 inclusive). Across, different [ST]s, identical subtrees should have identical
@@ -71,7 +78,7 @@ pub struct ST {
     /// Lookup of which children each node has in the ST.
     ///
     /// The 0-based index corresponds to which node index to get the children of.
-    pub children: Vec<Vec<usize>>,
+    pub children: Vec<Vec<u8>>,
 
     /// All edges in the ST.
     pub edges: Vec<Edge>,
@@ -100,7 +107,7 @@ pub fn gen_sts(n: usize, max_depth: usize, max_siblings: usize, max_inversions: 
 
     for r in 0..n {
         let mut st = ST {
-            root: r,
+            root: r as u8,
             parents: vec![None; n],
             subtree_key: vec![0; n],
             children: vec![vec![]; n],
@@ -175,11 +182,11 @@ fn gen_sts_recursive(
         // populate adjacency list edges
         for (child, p_opt) in final_st.parents.iter().enumerate() {
             if let Some(p) = *p_opt {
-                final_st.edges.push(Edge { from: p, to: child });
+                final_st.edges.push(Edge { from: p, to: child as u8 });
             }
         }
 
-        // Set bits 42-44 (from LSB, 0-indexed) of subtree keys to record root of each subtree.
+        // Set bits 32-34 (from LSB, 0-indexed) of subtree keys to record root of each subtree.
         //
         // Copy pre-computed subtree keys from in-progress tracking
         for node in 0..n {
@@ -249,8 +256,8 @@ fn gen_sts_recursive(
 
                 // add edges to all children in combination. We backtrack later.
                 for &child in &combination {
-                    st.parents[child] = Some(parent);
-                    st.children[parent].push(child);
+                    st.parents[child] = Some(parent as u8);
+                    st.children[parent].push(child as u8);
                     depths[child] = parent_depth + 1;
                     new_visited |= 1 << child;
                     added_nodes.push(child);
@@ -360,9 +367,9 @@ fn print_tree(t: &ST) {
     println!("{}", tree);
 }
 
-fn make_termtree(start: usize, children: &Vec<Vec<usize>>) -> Tree<usize> {
+fn make_termtree(start: u8, children: &Vec<Vec<u8>>) -> Tree<u8> {
     let mut root = Tree::new(start);
-    for edge in &children[start] {
+    for edge in &children[start as usize] {
         root.push(make_termtree(*edge, children));
     }
     root
