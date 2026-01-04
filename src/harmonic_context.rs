@@ -126,10 +126,14 @@ pub fn select_candidate(
     top_n_roots: usize,
     method: usize,
 ) -> Vec<f64> {
-    let mut candidate_frequencies_per_freq: Vec<&[f64]> = vec![];
+    let mut candidate_frequencies_per_freq: Vec<Vec<f64>> = vec![];
     let mut idx = 0;
-    for num_cands in num_cands_per_freq {
-        candidate_frequencies_per_freq.push(&candidate_ratios[idx..(idx + num_cands)]);
+    for (freq_idx, num_cands) in num_cands_per_freq.iter().enumerate() {
+        let cand_freqs = candidate_ratios[idx..(idx + num_cands)]
+            .iter()
+            .map(|r| r * freqs[freq_idx])
+            .collect::<Vec<f64>>();
+        candidate_frequencies_per_freq.push(cand_freqs);
         idx += num_cands;
     }
 
@@ -154,8 +158,14 @@ pub fn select_candidate(
             .collect::<Vec<usize>>()
     };
 
+    // println!(
+    //     "Top {} tonicity freq indices: {:?}",
+    //     top_n_roots, top_n_freq_tonicity_indices
+    // );
+
     for &freq_idx in &top_n_freq_tonicity_indices {
         let candidate_freqs = &candidate_frequencies_per_freq[freq_idx];
+
         let results = graph_dissonance(
             freqs,
             candidate_freqs,
@@ -198,4 +208,49 @@ pub fn select_candidate(
     output.extend_from_slice(&best_cand_tonicities);
 
     output
+}
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_select_candidate() {
+        let res = select_candidate(
+            &[
+                488.88888888888886,
+                651.8518518518517,
+                698.4126984126983,
+                814.8148148148147,
+            ],
+            &[
+                3, 5, 3, // 1
+                0,
+            ],
+            &[
+                1.25,
+                1.2857142857142856,
+                1.265625,
+                0.9375,
+                0.94921875,
+                0.9333333333333333,
+                0.9481481481481482,
+                0.94921875,
+                0.8888888888888888,
+                0.9,
+                0.875,
+                // 0.75,
+            ],
+            &[
+                0.7355844981412523,
+                0.11316352219848157,
+                0.08801039985278604,
+                0.06324157980748019,
+            ],
+            0.062,
+            3,
+            1,
+        );
+
+        println!("{:?}", res);
+    }
 }
