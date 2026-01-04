@@ -2,13 +2,30 @@
 
 _Now that's a handful._
 
-[TOC]
+## tl;dr
+
+A new algorithm for modelling the perception of complexity and tonicity of chords up to 8 notes. Tonicity is the measure of how likely the note is to be perceived as the "tonic", which may or may not correspond to the chord. This is done in real-time which, when used in conjunction with my [visualizer](https://github.com/euwbah/n-edo-lattice-visualiser), updates a model of pitch memory that tracks the listener's interpretation of up to 8 unique notes over time.
+
+This model is not biased towards any tuning system or musical culture, in the sense that there was no hard-coding of weights/penalties/points from existing musical patterns/vocabulary I am familiar with. It has zero machine-learned/statistically regressed parameters, but has results that mostly agree with my subjective perception of consonance and root perception in Western/European musical harmony.
+
+The only assumption made is that the instrument has a harmonic timbre (although this setting can be changed easily by modifying [dyad_lookup.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/dyad_lookup.rs)).
+
+The model is only based on dyadic relationships between notes, but unlike most other chord complexity models with dyadic-based approaches, it:
+
+1. Captures the gestalt of the chord voicing at different hierarchies of detail, without having to precompute permutations of polyadic interval combinations
+2. Does not have harmonic duality (major and minor triads do not have the same complexity score)
+3. Depends on the current musical context by keeping track of pitch memory over time
+
+Two core concepts that make it work:
+
+1. Treating subjective interpretations of chords as trees, where a (parent, child) edge is used to model the listener hearing the child note with respect to the parent note, e.g. `C->E` means E is heard as M3 of C. (See [Interpretation Trees](#generalizing-polyadic-complexity-using-interpretation-trees))
+2. Using the asymmetry of the complexity of intervals about the octave to break the symmetry of chord duality/negative harmony. E.g., it is generally accepted that P4 and P5 do not have the same complexity, even though they are octave-duals of each other. This asymmetry is exploited so that overall chord perception is modelled more than the sum of its pairwise dyadic complexities. (See [Dyadic Tonicity](#base-case-dyadic-tonicity))
 
 ## Introduction
 
-So far, I haven't found a measure of harmonic complexity/concordance/consonance that agrees with my own subjective perception of chordal and melodic tension and release. I started a bit of initial research towards this goal, and I wanted to share my current progress in a relatively informal way here 🙂
+So far, I haven't found a measure of harmonic complexity/concordance/consonance that agrees with my own subjective perception of chordal and melodic tension and release. I started a bit of initial research towards this goal, and I wanted to document my current progress and thought process in a relatively informal and narrative manner here.
 
-One year ago, I started work on [polyadic-old.rs](/src/polyadic-old.rs), which is an attempt to compute polyadic chord complexity and do root detection in a way that I am satisfied with. However, the computational cost of the full version of this algorithm is $N! \times (N-1)! \times M$ where $N$ is the number of notes in a chord, and $M$ is the number of candidate ratios that a new tempered note could be relative to the current harmonic context, and I relied a lot on aggressive pruning (via beam-search) to allow this algorithm to run in real-time at $O(N^3)$ as I play, but this aggressive pruning caused the results to deteriorate from the full version quite significantly.
+One year ago, I started work on [polyadic-old.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic-old.rs), which is an attempt to compute polyadic chord complexity and do root detection in a way that I am satisfied with. However, the computational cost of the full version of this algorithm is $N! \times (N-1)! \times M$ where $N$ is the number of notes in a chord, and $M$ is the number of candidate ratios that a new tempered note could be relative to the current harmonic context, and I relied a lot on aggressive pruning (via beam-search) to allow this algorithm to run in real-time at $O(N^3)$ as I play, but this aggressive pruning caused the results to deteriorate from the full version quite significantly.
 
 However, in the old algorithm, I found the idea of using spanning trees to represent possible interpretations of a chord promising. This article serves as a journal of my thought process for my second (or third) attempt developing this idea, where complexity is computed as the aggregate complexity over possible [**interpretation trees**](#generalizing-polyadic-complexity-using-interpretation-trees).
 
@@ -31,7 +48,7 @@ I needed a concordance metric that can, for any arbitrary EDO (equal division of
 
 7. Except for rhythmic entrainment/beat detection and cultural/vocabulary entrainment models, all of the above features **should not be implemented with a black-box machine learning model**, but rather a fully explainable and interpretable algorithm that can hopefully give insight into (or at least a description of) the underlying logic (if any) of the harmony derived from the European musical tradition.
 
-If you find any glaring shortcomings in the assumptions, find some part of the algorithm (or its implementation) redundant or incorrect relative to what I claimed it does, if you have a fresh perspective on this problem that can significantly speed up the algorithm, please reach out to me over Discord (@euwbah), Instagram (@euwbah), or email (euwbah [ａ𝐭] ġｍаíḷ [ɗօt] ċοm) (in decreasing order of preference). I'd very much appreciate and enjoy any discussion on this topic!
+If you find any glaring shortcomings in the assumptions, find some part of the algorithm (or its implementation) redundant or incorrect relative to what I claimed it does, if you have a fresh perspective on this problem that can significantly speed up the algorithm, please reach out to me over Discord (@euwbah), Instagram (@euwbah), or email (euwbah [ａ𝐭] ġｍаíḷ [ɗօt] ċοm). I'd very much appreciate and enjoy any discussion on this topic!
 
 Just to get this out of the way, the algorithm is tuned to my musical biases:
 
@@ -157,7 +174,7 @@ To me, these two properties signify that `4:5:6:7` should be considered "simpler
 
 I will describe my algorithm using the narrative steps that I took to arrive at the final version. Though long-winded, I hope that showing what _did not_ work can be as useful as showing what did.
 
-The first version of the algorithm described is implemented in [polyadic-v1.rs](/src/polyadic-v1.rs) and uses [dyad_lookup-old.rs](/src/dyad_lookup-old.rs) for dyadic complexity/tonicity lookups.
+The first version of the algorithm described is implemented in [polyadic-v1.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic-v1.rs) and uses [dyad_lookup-old.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/dyad_lookup-old.rs) for dyadic complexity/tonicity lookups.
 
 ### Goal 1: Crossing the dyadic-polyadic and micro-macro scale gap
 
@@ -185,7 +202,7 @@ In this case, we only have two notes, and there are already many existing method
 
 ![Roughness plot](roughness_scaled_add_vs_cents_v1.png)
 
-For the code that generated this plot, see the implementation of `DyadLookup` in [dyad_lookup.rs](/src/dyad_lookup.rs). The same results are stored in [sethares_roughness_31_5_0.95.csv](/sethares_roughness_31_5_0.95.csv).
+For the code that generated this plot, see the implementation of `DyadLookup` in [dyad_lookup.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/dyad_lookup.rs). The same results are stored in [sethares_roughness_31_5_0.95.csv](https://github.com/euwbah/dissonance-wasm/blob/master/sethares_roughness_31_5_0.95.csv).
 
 Next, for the rest of this algorithm, we will need a measure of "tonicity", i.e. how likely a note will be perceived as the root/tonic of the chord/section/melodic fragment. Ideally, this number is supplied by an all-knowing oracle that always gives the correct answer.
 
@@ -248,7 +265,7 @@ Using this idea, I generated a plot for the initial heuristic tonicity score of 
 
 ![Tonicity plot](tonicity_vs_cents_v1.png)
 
-The code that generated this plot can be found in the implementation of `TonicityLookup` in [dyad_lookup.rs](/src/dyad_lookup.rs), and the results are stored in [dyad_tonicity_19_5_0.95.csv](/dyad_tonicity_19_5_0.95.csv).
+The code that generated this plot can be found in the implementation of `TonicityLookup` in [dyad_lookup.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/dyad_lookup.rs), and the results are stored in [dyad_tonicity_19_5_0.95.csv](https://github.com/euwbah/dissonance-wasm/blob/master/dyad_tonicity_19_5_0.95.csv).
 
 The higher the tonicity, the more likely the lower note is to be heard as root/tonic.
 
@@ -426,7 +443,7 @@ I have considered different options for evaluating the local tonicity distributi
        - Solution: from the distribution created from the mixed tonicities $m_N$ as a solution to Problem 1 above, we combine the reciprocal subtree complexity with an edge-specific weight in a non-linear way (e.g., multiplying the dyadic complexity and the reciprocal subtree complexity).
 
 > [!NOTE]
-> In my initial attempt ([polyadic-old.rs](/src/polyadic-old.rs)), I have gone with method 3, however, this raised the computational complexity so high that the algorithm can no longer run at real time unless aggressive beam pruning was done, but that severely impacted accuracy.
+> In my initial attempt ([polyadic-old.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic-old.rs)), I have gone with method 3, however, this raised the computational complexity so high that the algorithm can no longer run at real time unless aggressive beam pruning was done, but that severely impacted accuracy.
 >
 > In my current attempt, I aim to use method 2, but even then the computational complexity is very high, and some heuristics must be done to prune the search space of possible trees.
 
@@ -1005,11 +1022,11 @@ The resulting dyadic roughness and tonicity curves are as follows:
 
 ![Dyadic tonicity graph version 2](tonicity_vs_cents.png)
 
-The final dyadic roughness calculation for intervals uses the blue line (scaled add) in Roughness vs Cents, while reducing the per-octave dropoff to 0.86 per octave instead of 0.5 as pictured in the graph (as in, every octave the roughness halves). Additionally, lower interval limit was emulated on a per-dyad basis in `lower_interval_limit_penalty()` in [polyadic.rs](/src/polyadic.rs).
+The final dyadic roughness calculation for intervals uses the blue line (scaled add) in Roughness vs Cents, while reducing the per-octave dropoff to 0.86 per octave instead of 0.5 as pictured in the graph (as in, every octave the roughness halves). Additionally, lower interval limit was emulated on a per-dyad basis in `lower_interval_limit_penalty()` in [polyadic.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic.rs).
 
 The normalized dyadic roughness (green) in Roughness vs Cents is used for computing the raw dyad tonicity (blue line in Tonicity vs Cents). The final dyadic tonicity scores are retrieved from the smoothed tonicity (green line in Tonicity vs Cents).
 
-The full 9 octaves of values can be found in [sethares_roughness_31_5_0.95.csv](/sethares_roughness_31_5_0.95.csv) and [dyad_tonicity_19_5_0.95.csv](/dyad_tonicity_19_5_0.95.csv).
+The full 9 octaves of values can be found in [sethares_roughness_31_5_0.95.csv](https://github.com/euwbah/dissonance-wasm/blob/master/sethares_roughness_31_5_0.95.csv) and [dyad_tonicity_19_5_0.95.csv](https://github.com/euwbah/dissonance-wasm/blob/master/dyad_tonicity_19_5_0.95.csv).
 
 
 ### Information flow of revised model
@@ -1018,7 +1035,7 @@ The full 9 octaves of values can be found in [sethares_roughness_31_5_0.95.csv](
 
 ### Computing values in revised model
 
-The adjustable parameters below can be found and modified near the top of [polyadic.rs](/src/polyadic.rs), which implements this algorithm.
+The adjustable parameters below can be found and modified near the top of [polyadic.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic.rs), which implements this algorithm.
 
 #### Computing tree/subtree complexity
 
@@ -1103,7 +1120,7 @@ This double-weighting ensures that both the most likely interpretation trees for
 
 The target global tonicities are computed by the softmax of likelihoods of each interpretation tree, with temperature `TONICITY_CONTEXT_TEMPERATURE_TARGET`.
 
-### Algorithm v2 results
+### Algorithm v2 results (pre-optimization/tuning)
 
 I have run some initial tests with
 
@@ -1112,7 +1129,7 @@ cargo test polyadic::tests::test_graph_diss -- --exact --no-capture > test_graph
 cargo test polyadic::tests::test_sanity_metrics -- --exact --no-capture > test_sanity1.txt
 ```
 
-Using the following parameters set to arbitrary untuned values:
+Using the following parameters:
 
 ```rust
 const HEURISTIC_DYAD_TONICITY_TEMP: f64 = 0.8;
@@ -1132,7 +1149,7 @@ const TONICITY_CONTEXT_TEMPERATURE_DISS: f64 = 0.1;
 
 > [!NOTE]
 >
-> The full results from the test using untuned parameters can be found in [paper/test_graph_diss.txt](/paper/test_graph_diss.txt) and [paper/test_sanity1.txt](/paper/test_sanity1.txt).
+> The full results from this initial test can be found in [paper/test_graph_diss.txt](https://github.com/euwbah/dissonance-wasm/blob/master/paper/test_graph_diss.txt) and [paper/test_sanity1.txt](https://github.com/euwbah/dissonance-wasm/blob/master/paper/test_sanity1.txt).
 >
 > The test function `graph_diss()` has adjustable parameters that control how much information is displayed. Currently, only the top 2 likelihood and lowest 2 complexity trees are displayed per root, and the overall top 10 dissonance contributing trees are displayed for each chord voicing.
 >
@@ -1199,9 +1216,9 @@ Then, the "best candidate" will be picked, which is scored on a heuristic that d
 
 I would be happy if the algorithm could run as is. The problem now is that the computational complexity explodes exponentially with the number of notes. If I have 7 notes in the pitch memory model and I am playing one new note, the algorithm has to consider all possible interpretation trees with 8 notes, multiplied by the number of candidate frequencies for the new note (which can be up to 20). This gives a maximal complexity of performing a DFS on $8^7 \cdot 20 = 41,943,040$ trees per update tick.
 
-> This complexity is already an improvement over the previous version of the algorithm in [polyadic-old.rs](/src/polyadic-old.rs) that grew factorially with the number of notes, the previous algorithm would have to consider $8! \cdot 7! \cdot 20 = 4,064,256,000$ trees for a full search.
+> This complexity is already an improvement over the previous version of the algorithm in [polyadic-old.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic-old.rs) that grew factorially with the number of notes, the previous algorithm would have to consider $8! \cdot 7! \cdot 20 = 4,064,256,000$ trees for a full search.
 
-The full tree generation code is found in `gen_sts()` of [tree_gen.rs](/src/tree_gen.rs), where I used a root-down approach with a combinatorial choosing function to enumerate possible children for each node. It turns out that generating the set of all spanning trees under the optimizing constraints below is not a trivial algorithm.
+The full tree generation code is found in `gen_sts()` of [tree_gen.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/tree_gen.rs), where I used a root-down approach with a combinatorial choosing function to enumerate possible children for each node. It turns out that generating the set of all spanning trees under the optimizing constraints below is not a trivial algorithm.
 
 The following heuristic optimizations are currently implemented to reduce the interpretation tree search space while still holding true to my musical intuition. Note that these optimizations do not require computing any complexity or tonicity values, but only depend on the structure of the interpretation tree itself.
 
@@ -1354,7 +1371,7 @@ Before pruning, there are a total of $N^{N-1}$ unique spanning trees (counting u
 
 ### Tree generation
 
-The algorithm for enumerating all possible spanning trees within the above constraints was not as trivial as I thought. The full implementation is in [tree_gen.rs](/src/tree_gen.rs) in the `gen_sts()` function (where `gen_sts_recursive` is doing the bulk of the work).
+The algorithm for enumerating all possible spanning trees within the above constraints was not as trivial as I thought. The full implementation is in [tree_gen.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/tree_gen.rs) in the `gen_sts()` function (where `gen_sts_recursive` is doing the bulk of the work).
 
 Most spanning tree generation algorithms are leaf-up, i.e., starting from individual unconnected nodes and adding edges between them until all nodes are connected, checking that there are no cycles at each step. This is the main process for other spanning tree algos especially minimum spanning tree algorithms like Prim's and Kruskal's.
 
@@ -1385,15 +1402,15 @@ Without memoization:
 ```txt
 =============== SANITY METRICS ================
 
-        min - maj: 0.012025578136007686
- min - maj scaled: 0.2677619531810946
-     tritone - p4: 0.06729656027850972
-          p4 - p5: 0.10898553770569641
-  lower intv. lim: 0.13438202707637553
-  P5 tonicity gap: 0.35736346105823596
- targ. C conf maj: 0.4224095176070537
- targ. C conf min: 0.4036680608162868
- existing vs cand: 0.03450424503342786
+        min - maj: 0.012137977573400405
+ min - maj scaled: 0.2702646430769437
+     tritone - p4: 0.06729656027850967
+          p4 - p5: 0.10898553770569636
+  lower intv. lim: 0.13439663775500937
+  P5 tonicity gap: 0.36668470251115715
+ targ. C conf maj: 0.42407330546463173
+ targ. C conf min: 0.40488250923758157
+ existing vs cand: 0.011043448871907446
 
 Benchmark time (201 8-note iters): 71.6581382 seconds
 ```
@@ -1403,25 +1420,26 @@ With memoization:
 ```txt
 =============== SANITY METRICS ================
 
-        min - maj: 0.012025578136007686
- min - maj scaled: 0.2677619531810946
-     tritone - p4: 0.06729656027850972
-          p4 - p5: 0.10898553770569641
-  lower intv. lim: 0.13438202707637553
-  P5 tonicity gap: 0.35736346105823596
- targ. C conf maj: 0.4224095176070537
- targ. C conf min: 0.4036680608162868
- existing vs cand: 0.03773427643615751
+        min - maj: 0.012137977573400405
+ min - maj scaled: 0.2702646430769437
+     tritone - p4: 0.06729656027850967
+          p4 - p5: 0.10898553770569636
+  lower intv. lim: 0.13439663775500937
+  P5 tonicity gap: 0.36668470251115715
+ targ. C conf maj: 0.42407330546463173
+ targ. C conf min: 0.40488250923758157
+ existing vs cand: 0.011043448871907446
 
-Benchmark time (201 8-note iters): 16.0461813 seconds
+Benchmark time (201 8-note iters): 7.02643 seconds
 ```
 
-Note that all sanity metric scores were unaffected by the memoization, except the last metric (dissonance scoring difference between all notes played at the same time vs. one note being played later) which changed due to a different parameter being used for that particular metric only.
+After memoization, an 8-note tonicity update computation is performed in 35ms on average.
 
-The test `tree_gen::tests::test_subtree_key_uniqueness` ensures that all subtree keys were unique:
+Note that all sanity metric scores were unaffected by the memoization.
+
+The test `tree_gen::tests::test_subtree_key_uniqueness` ensures that all subtree keys were unique and well-formed.
 
 ```txt
-running 1 test
 Checking 2 trees with 2 nodes
 Checking 9 trees with 3 nodes
 Checking 64 trees with 4 nodes
@@ -1431,15 +1449,346 @@ Checking 6972 trees with 7 nodes
 Checking 23104 trees with 8 nodes
 
 Subtree Key Statistics:
-  Total unique keys: 5146
-  Total unique subtrees: 5146
-  Duplicate subtrees found (expected): 241829
+  Total unique keys: 41564
+  Total unique subtrees: 41564
+  Duplicate subtrees found (expected): 205411
   Collisions found (should be 0): 0
-test tree_gen::tests::test_subtree_key_uniqueness ... ok
 ```
 
-In total, only 5146 unique subtrees exist amongst all interpretation trees of up to 8 notes. This means that even though there are 23,104 interpretation trees for 8-note chords, the amount of full tree-traversal computations that have to be done is limited to at most 5146 computations, and the rest of the computations can be reused.
+In total, only 41564 unique subtrees exist amongst all interpretation trees of up to 8 notes. This means that even though there are 23,104 unique interpretation trees for 8-note chords, totalling 184832 subtrees with repeats, the amount of (sub)tree-traversal computations that have to be done is limited to at most 41564, and the rest of the computations can be reused for an expected 4.4x speed up.
 
-## Conclusion
+#### Memoizing with hot-swap candidate note
 
-Yeah man.
+When testing candidate frequencies, only one node is assigned a different frequency & heuristic tonicity score. Hence, all subtrees that do not contain the candidate node can have their complexity and likelihood values reused from the previous candidate evaluation.
+
+However, since the `SubtreeKey` indexes nodes based on ascending pitch, when the candidate frequency is changed, the ordering of nodes may change, which will cause the same subtree (with respect to note frequencies) show up as a different pre-computed `SubtreeKey`.
+
+Hence, to allow for memoizing repeated calculations over different candidate notes, the pre-computed subtree keys had to be transformed via `polyadic::remap_subtree_key_to_og_indexing()`, which remaps subtree keys from ascending-pitch indexing to the indexing as per `freqs` passed to `graph_dissonance()`, and the candidate note is assigned to the last index.
+
+The following test benchmarks the evolution of tonicity scores over 2000 iterations of updating the tonicities of 6 existing notes + 10 choices of candidate notes.
+
+```txt
+Bench iter 0: max tonicity cands idx: 3, tonicities: [0.16282858618467694, 0.16171231622828977, 0.16070448093331896, 0.16251010312599934, 0.1610516490358855, 0.16212473363546345, 0.02906813085636607]
+Bench iter 25: max tonicity cands idx: 3, tonicities: [0.16550653749099487, 0.16119398261722512, 0.15929013638808595, 0.16253286081456372, 0.16000648157205105, 0.1615350775845235, 0.029934923532555703]
+[omitted...]
+Bench iter 450: max tonicity cands idx: 3, tonicities: [0.2621828224947987, 0.14391759268167806, 0.1330964841239457, 0.150881676576002, 0.1372819651756823, 0.14275591308535807, 0.02988354586253526]
+Bench iter 475: max tonicity cands idx: 3, tonicities: [0.26989367046940826, 0.14241808444092754, 0.13144808174396425, 0.14948954952504634, 0.13568187509118296, 0.1411840793299383, 0.029884659399532346]
+Benchmark time (500 7-note 10-candidate iters): 42.2349836 seconds
+```
+
+This sums up to around 84ms latency per new note played for testing 10 possible candidates.
+
+Running this test again with 20 candidate notes each iteration:
+
+```txt
+Bench iter 0: max tonicity cands idx: 3, tonicities: [0.16282858618467694, 0.16171231622828977, 0.16070448093331896, 0.16251010312599934, 0.1610516490358855, 0.16212473363546345, 0.02906813085636607]
+Bench iter 25: max tonicity cands idx: 3, tonicities: [0.16550653749099487, 0.16119398261722512, 0.15929013638808595, 0.16253286081456372, 0.16000648157205105, 0.1615350775845235, 0.029934923532555703]
+[omitted...]
+Bench iter 450: max tonicity cands idx: 3, tonicities: [0.2621828224947987, 0.14391759268167806, 0.1330964841239457, 0.150881676576002, 0.1372819651756823, 0.14275591308535807, 0.02988354586253526]
+Bench iter 475: max tonicity cands idx: 3, tonicities: [0.26989367046940826, 0.14241808444092754, 0.13144808174396425, 0.14948954952504634, 0.13568187509118296, 0.1411840793299383, 0.029884659399532346]
+Benchmark time (500 7-note 20-candidate iters): 73.4741993 seconds
+```
+
+For 20 candidates tested, the algorithm takes 147ms. We doubled the number of candidates, but the computation time only increased 75%, so the memoization across candidates is working well.
+
+### Random tree sampling
+
+Despite pruning and memoizations (and other optimizations not documented above), the algorithm takes an unacceptable amount of time to evaluate candidates on 7-note chords. The goal is sub-16ms delay per note played (where the algo has to decide which detemperament candidate to accept), and sub 5ms for 7-note tonicity updates. I decided to limit the maximum number of interpretation trees to evaluate, randomly sampling if the number of pre-computed trees exceeds the limit.
+
+To find the optimal tradeoff between speed and accuracy, I ran the following benchmark in `polyadic::tests::bench_max_trees_deterioration`, which tests how different the result of N iterations of a 6-note + 10-candidates is while varying the `MAX_TREES` parameter. Note that when more iterations are run, the tonicity scores will have had more time to converge, so the lower the `MAX_TREES` setting, the more opinionated the tonicity scores will be. I am simply checking that the overall relative order of tonicity scores between the notes remain similar.
+
+```txt
+=== MAX_TREES = 18446744073709551615 ===
+Benchmark time (142 6-note 10-candidate iters): 10.0458476 seconds. (14.13519353011089 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5377339992333904, tonicity: [0.18002023084205093, 0.15909286025132283, 0.15348772368029945, 0.1627118860164894, 0.15570388852891154, 0.1590510041130048, 0.029932406567921024]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 20000 ===
+Benchmark time (141 6-note 10-candidate iters): 10.0429054 seconds. (14.039761840234002 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5377248849132501, tonicity: [0.17988104210798891, 0.15911441671002594, 0.1535377764579727, 0.16271555544482016, 0.15574258658603835, 0.1590761689179511, 0.029932453775202872]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 10000 ===
+Benchmark time (143 6-note 10-candidate iters): 10.0016052 seconds. (14.29770493240425 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.537743152470425, tonicity: [0.18015974449432864, 0.15907122728341352, 0.15343765623120897, 0.1627081070922976, 0.15566514757696204, 0.1590257585359457, 0.02993235878584358]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 5000 ===
+Benchmark time (191 6-note 10-candidate iters): 10.058831 seconds. (18.98828999115305 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5388464356796752, tonicity: [0.1873567890717728, 0.15795377500250674, 0.15083581733682216, 0.1624595756792588, 0.1538692797671602, 0.15759126795717118, 0.029933495185308075]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 2500 ===
+Benchmark time (361 6-note 10-candidate iters): 10.0012688 seconds. (36.095420213083365 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5399485224283189, tonicity: [0.22648247107949723, 0.15057484092925466, 0.1406736027833574, 0.15719734148624004, 0.14485563487531183, 0.150343861560041, 0.029872247286297768]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 1000 ===
+Benchmark time (500 6-note 10-candidate iters): 6.0210256 seconds. (83.04233086137351 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5469606224618418, tonicity: [0.27849698437218057, 0.14125546208177422, 0.12764070621062157, 0.14849983663283894, 0.1343111612998853, 0.13991080158169475, 0.029885047821004585]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 500 ===
+Benchmark time (500 6-note 10-candidate iters): 3.0749186 seconds. (162.60593044641897 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5483764583541461, tonicity: [0.26666365549106963, 0.14385612359553135, 0.13195171463371386, 0.15058836097702058, 0.13521524972866156, 0.14182190132065034, 0.029902994253352678]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 250 ===
+test polyadic::tests::bench_max_trees_deterioration has been running for over 60 seconds
+Benchmark time (500 6-note 10-candidate iters): 1.7087951000000001 seconds. (292.6038352989191 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5517239352989377, tonicity: [0.271807987828909, 0.14435628360638428, 0.13119516691110594, 0.14745568700369144, 0.13376365921293318, 0.1415701896056374, 0.029851025831338623]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 100 ===
+Benchmark time (500 6-note 10-candidate iters): 0.8654707 seconds. (577.7203087291113 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5390447519117809, tonicity: [0.27181371610930805, 0.14273354756867804, 0.13024009744127812, 0.1500109124773596, 0.13401439691166853, 0.14129491524896157, 0.029892414242746107]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+```
+
+In fact, even after removing most of the trees (randomly selecting 100 out of 6972), the most optimal detemperament candidate (1700c), and the relative ranking of tonicities in the dissonance & tonicity evaluation of resultant chord using that candidate remains unchanged!
+
+To err on the side of more accuracy, I have set `MAX_TREES = 800` for real-time update of existing chords, and `MAX_TREES_CANDIDATES = 4000` which is evenly distributed across the number of candidate frequencies provided (e.g., if 10 candidate frequencies are given, then each candidate will be allowed to evaluate up to 400 trees).
+
+### Algorithm v2 results (post-optimization/tuning)
+
+Using the following parameters:
+
+```rust
+const HEURISTIC_DYAD_TONICITY_TEMP: f64 = 0.8;
+const LOCAL_TONICITY_TEMP: f64 = 0.7;
+const NEW_CANDIDATE_TONICITY_RATIO: f64 = 0.2;
+const EDGE_OVER_SUBTREE_COMPLEXITY_BIAS: f64 = 1.0;
+const TONICITY_BIAS: f64 = 0.6;
+const COMPLEXITY_LIKELIHOOD_BIAS: f64 = 1.5;
+const COMPLEXITY_LIKELIHOOD_SCALING: f64 = 1.0;
+const DEEP_TREE_LIKELIHOOD_PENALTY: f64 = 2.2;
+const GLOBAL_TONICITY_LIKELIHOOD_SCALING: f64 = (2u128 << 10) as f64;
+const GLOBAL_TONICITY_LIKELIHOOD_MAX_LN: f64 = 1.0;
+const DYADIC_TONICITY_LIKELIHOOD_SCALING: f64 = (2u128 << 38) as f64;
+const LOW_NOTE_ROOT_LIKELIHOOD_SCALING: f64 = 1.04;
+const TONICITY_CONTEXT_TEMPERATURE_TARGET: f64 = 0.8;
+const TONICITY_CONTEXT_TEMPERATURE_DISS: f64 = 0.1;
+```
+
+Guidelines on how to adjust these parameters can be found in the documentation of the parameters in [polyadic.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic.rs).
+
+Performing tests with
+
+```sh
+cargo test polyadic::tests::test_graph_diss --release -- --exact --no-capture > test_graph_diss_memo.txt
+cargo test polyadic::tests::test_sanity_metrics --release -- --exact --no-capture > test_sanity_memoized_cand.txt
+```
+
+The results can be found in [test_sanity_memoized_cand.txt](https://github.com/euwbah/dissonance-wasm/blob/master/paper/test_sanity_memoized_cand.txt) and [test_graph_diss_memo.txt](https://github.com/euwbah/dissonance-wasm/blob/master/paper/test_graph_diss_memo.txt).
+
+## Appendix
+
+### Distributions of dissonance scores
+
+I generated 1000 random chords for 2-8 note chors each, with notes uniformly distributed in the range C3 to C6.
+
+```txt
+Dissonance stats for 2 random notes in C3 - C6:
+   Min: 0.06509579095729916
+   Max: 0.9999756866320135
+  Mean: 0.42967363163119876
+   Std: 0.2031251603048741
+# Number of samples = 1000
+# Min = 650
+# Max = 9999
+#
+# Mean = 4296.231000000006
+# Standard deviation = 2031.2502050803603
+# Variance = 4125977.395639006
+#
+# Each ∎ is a count of 3
+#
+  650 ..  1585 [  79 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+ 1585 ..  2520 [ 143 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+ 2520 ..  3455 [ 171 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+ 3455 ..  4390 [ 137 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+ 4390 ..  5325 [ 167 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+ 5325 ..  6260 [ 142 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+ 6260 ..  7195 [  80 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+ 7195 ..  8130 [  34 ]: ∎∎∎∎∎∎∎∎∎∎∎
+ 8130 ..  9065 [  19 ]: ∎∎∎∎∎∎
+ 9065 .. 10000 [  28 ]: ∎∎∎∎∎∎∎∎∎
+
+Dissonance stats for 3 random notes in C3 - C6:
+   Min: 0.2050611819813634
+   Max: 0.9608329132223163
+  Mean: 0.42742535292649436
+   Std: 0.12394500118536399
+# Number of samples = 1000
+# Min = 2050
+# Max = 9608
+#
+# Mean = 4273.740999999993
+# Standard deviation = 1239.4534964729407
+# Variance = 1536244.969918998
+#
+# Each ∎ is a count of 5
+#
+2050 .. 2806 [  93 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+2806 .. 3562 [ 224 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+3562 .. 4318 [ 262 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+4318 .. 5074 [ 170 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+5074 .. 5830 [ 128 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+5830 .. 6586 [  78 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+6586 .. 7342 [  25 ]: ∎∎∎∎∎
+7342 .. 8098 [  13 ]: ∎∎
+8098 .. 8854 [   6 ]: ∎
+8854 .. 9610 [   1 ]:
+
+Dissonance stats for 4 random notes in C3 - C6:
+   Min: 0.24631054643729602
+   Max: 0.7938273753576092
+  Mean: 0.434234963083168
+   Std: 0.09108240292315453
+# Number of samples = 1000
+# Min = 2463
+# Max = 7938
+#
+# Mean = 4341.848000000003
+# Standard deviation = 910.8446381771157
+# Variance = 829637.9548960008
+#
+# Each ∎ is a count of 5
+#
+2463 .. 3011 [  30 ]: ∎∎∎∎∎∎
+3011 .. 3559 [ 170 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+3559 .. 4107 [ 266 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+4107 .. 4655 [ 208 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+4655 .. 5203 [ 162 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+5203 .. 5751 [  78 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+5751 .. 6299 [  47 ]: ∎∎∎∎∎∎∎∎∎
+6299 .. 6847 [  25 ]: ∎∎∎∎∎
+6847 .. 7395 [  11 ]: ∎∎
+7395 .. 7943 [   3 ]:
+
+Dissonance stats for 5 random notes in C3 - C6:
+   Min: 0.2575482308937836
+   Max: 0.7216396909533023
+  Mean: 0.4297081842124831
+   Std: 0.07481909472979106
+# Number of samples = 1000
+# Min = 2575
+# Max = 7216
+#
+# Mean = 4296.593000000006
+# Standard deviation = 748.1831175260497
+# Variance = 559777.9773509987
+#
+# Each ∎ is a count of 5
+#
+2575 .. 3039 [  19 ]: ∎∎∎
+3039 .. 3503 [ 107 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+3503 .. 3967 [ 253 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+3967 .. 4431 [ 229 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+4431 .. 4895 [ 199 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+4895 .. 5359 [ 102 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+5359 .. 5823 [  53 ]: ∎∎∎∎∎∎∎∎∎∎
+5823 .. 6287 [  23 ]: ∎∎∎∎
+6287 .. 6751 [   8 ]: ∎
+6751 .. 7215 [   7 ]: ∎
+
+Dissonance stats for 6 random notes in C3 - C6:
+   Min: 0.29629362096951933
+   Max: 0.7345926011935215
+  Mean: 0.44078887081154344
+   Std: 0.06924131800880022
+# Number of samples = 1000
+# Min = 2962
+# Max = 7345
+#
+# Mean = 4407.395999999996
+# Standard deviation = 692.4064118593933
+# Variance = 479426.6391839998
+#
+# Each ∎ is a count of 5
+#
+2962 .. 3400 [  55 ]: ∎∎∎∎∎∎∎∎∎∎∎
+3400 .. 3838 [ 147 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+3838 .. 4276 [ 262 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+4276 .. 4714 [ 236 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+4714 .. 5152 [ 163 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+5152 .. 5590 [  82 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+5590 .. 6028 [  32 ]: ∎∎∎∎∎∎
+6028 .. 6466 [  12 ]: ∎∎
+6466 .. 6904 [   8 ]: ∎
+6904 .. 7342 [   3 ]:
+
+Dissonance stats for 7 random notes in C3 - C6:
+   Min: 0.271249203643672
+   Max: 0.6722409856590877
+  Mean: 0.4386986066050516
+   Std: 0.06528599900542552
+# Number of samples = 1000
+# Min = 2712
+# Max = 6722
+#
+# Mean = 4386.494000000003
+# Standard deviation = 652.8571788408237
+# Variance = 426222.49596399924
+#
+# Each ∎ is a count of 5
+#
+2712 .. 3113 [   4 ]:
+3113 .. 3514 [  67 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎
+3514 .. 3915 [ 177 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+3915 .. 4316 [ 259 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+4316 .. 4717 [ 217 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+4717 .. 5118 [ 126 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+5118 .. 5519 [  88 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+5519 .. 5920 [  44 ]: ∎∎∎∎∎∎∎∎
+5920 .. 6321 [  13 ]: ∎∎
+6321 .. 6722 [   5 ]: ∎
+
+Dissonance stats for 8 random notes in C3 - C6:
+   Min: 0.28264162163078616
+   Max: 0.6697712234145415
+  Mean: 0.4362732310644634
+   Std: 0.06212190731355506
+# Number of samples = 1000
+# Min = 2826
+# Max = 6697
+#
+# Mean = 4362.244999999997
+# Standard deviation = 621.2306004818175
+# Variance = 385927.45897499955
+#
+# Each ∎ is a count of 4
+#
+2826 .. 3213 [   9 ]: ∎∎
+3213 .. 3600 [  92 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+3600 .. 3987 [ 194 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+3987 .. 4374 [ 241 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+4374 .. 4761 [ 221 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+4761 .. 5148 [ 125 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+5148 .. 5535 [  76 ]: ∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎∎
+5535 .. 5922 [  30 ]: ∎∎∎∎∎∎∎
+5922 .. 6309 [   8 ]: ∎∎
+6309 .. 6696 [   4 ]: ∎
+```
+
+Judging from the above janky histograms and stats, this algorithm's dissonance scores seem to be slightly fat-tailed (leptokurtic), but generally well-behaved. Most random chords fall within the 0.3 to 0.6 dissonance range, with very few chords being extremely consonant (<0.2) or extremely dissonant (>0.8). The mean hovers around 0.43-0.44 for all chord sizes, but the standard deviation decreases as there are more notes (which is expected since the notes of larger chors are chosen with uniformly random pitch in the same range as smaller chords).
+
+## Thanks for reading!
+
+If you have made it until here, I sincerely thank you and appreciate your interest! I would love to have a chat or answer any questions on Discord (@euwbah), Instagram (@euwbah), or email (euwbah [ａ𝐭] ġｍаíḷ [ɗօt] ċοm).
+
+If you wish to support my work & research, you may share this article, star [this repository on GitHub](https://github.com/euwbah/dissonance-wasm), subscribe to my YouTube channel, or consider [sponsoring me](https://github.com/sponsors/euwbah).
+
+[![YouTube](https://img.shields.io/youtube/channel/subscribers/UC5KoRLrbkARhAUQC1tBngaA?label=YouTube%3A%20euwbah&style=social)](https://www.youtube.com/channel/UC5KoRLrbkARhAUQC1tBngaA)
+
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/euwbah?style=for-the-badge)](https://github.com/sponsors/euwbah)
+
+Thank you!

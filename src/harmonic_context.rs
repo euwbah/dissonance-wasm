@@ -10,7 +10,37 @@ use crate::polyadic::graph_dissonance;
 /// this value should decrease and on weak beats it should increase.
 const SMOOTHING: f64 = 0.9;
 
+/// Maximum number of random trees to sample when evaluating dissonance.
+///
+/// Setting this value too high can lead to long computation times. Setting too low can lead to
+/// deterioration for larger chords.
+///
+/// Number of interpretation trees for N notes:
+///
+/// 2. 2
+/// 3. 9
+/// 4. 64
+/// 5. 400
+/// 6. 1,842
+/// 7. 6,972
+/// 8. 23,104
+const MAX_TREES: usize = 800;
+
+/// Maximum number of trees to compute amongst all candidates.
+///
+/// The max_trees computed per candidate will be scaled by the number of candidates, so more
+/// candidates = more deterioration.
+const MAX_TREES_CANDIDATES: usize = 4_000;
+
+/// Epsilon value to determine if two dissonance values are "close enough" to fall back to
+/// tonicity comparison.
+const DISS_EPSILON: f64 = 0.001;
+
 /// Evaluate tonicity and dissonaance of the current state of notes.
+///
+///  * `freqs`: List of frequencies in pitch memory.
+///  * `context`: Current tonicity context (should be same length as freqs)
+///  * `elapsed_seconds`: Time elapsed since last update, in seconds.
 ///
 /// Returns a list of floats `[tonicity_1, tonicity_2, ..., dissonance]` where:
 ///
@@ -18,7 +48,15 @@ const SMOOTHING: f64 = 0.9;
 ///  * `dissonance` is the final evaluated dissonance of the chord.
 #[wasm_bindgen(js_name=updateTonicity)]
 pub fn update_tonicity(freqs: &[f64], context: &[f64], elapsed_seconds: f64) -> Vec<f64> {
-    let diss = &graph_dissonance(freqs, &[], context, SMOOTHING, elapsed_seconds, None)[0];
+    let diss = &graph_dissonance(
+        freqs,
+        &[],
+        context,
+        SMOOTHING,
+        elapsed_seconds,
+        MAX_TREES,
+        None,
+    )[0];
 
     let mut res = vec![];
 
@@ -34,8 +72,20 @@ pub fn update_tonicity(freqs: &[f64], context: &[f64], elapsed_seconds: f64) -> 
 /// and candidate ratio.
 ///
 /// - `freqs`: List of frequencies in pitch memory.
+///
 /// - `num_cands_per_freq`: How many candidate ratios per frequency in `freqs` short term memory
+///
 /// - `candidate_ratios`: Flattened array of frequency multiples of frequencies in `freqs`.
+///
+/// - `context`: Current tonicity context (should be same length as freqs)
+///
+/// - `elapsed_seconds`: Time elapsed since last update, in seconds.
+///
+/// - `top_n_roots`: How many notes in `freqs` should be considered as relative roots for candidate
+///   frequencies. Only the top n highest tonicity notes in `freqs` will be considered.
+///
+/// - `method`: 0 to select candidate with minimum dissonance, 1 to select candidate with maximum
+///   tonicity.
 ///
 /// E.g., if freqs = [200, 300] and cands_per_freq = [1, 2], and candidate_ratios = [1.5, 2, 1.5]
 ///
@@ -50,7 +100,9 @@ pub fn update_tonicity(freqs: &[f64], context: &[f64], elapsed_seconds: f64) -> 
 /// (cand_idx, cand_ratio_idx, tonicity_1, tonicity_2, ..., tonicity_cand)
 ///
 /// - `cand_idx`: Index of which note in short term memory the candidate note is heard relative to.
+///
 /// - `cand_ratio_idx`: Index of which candidate ratio should be used (as per the unflattened array)
+///
 /// - `tonicity_1, ..., tonicity_cand`: the tonicities of the existing notes in the same order as
 ///   freqs, together with the tonicity of the newly added candidate note at the end, rescaled so
 ///   that tonicities sum to 1 after including the candidate.
@@ -71,6 +123,8 @@ pub fn select_candidate(
     candidate_ratios: &[f64],
     context: &[f64],
     elapsed_seconds: f64,
+    top_n_roots: usize,
+    method: usize,
 ) -> Vec<f64> {
     let mut candidate_frequencies_per_freq: Vec<&[f64]> = vec![];
     let mut idx = 0;
@@ -79,36 +133,69 @@ pub fn select_candidate(
         idx += num_cands;
     }
 
-    let min_diss = f64::MAX;
-    let mut min_diss_freq_idx = 0; // idx of freqs that yields min diss candidate
-    let mut min_diss_ratio_idx = 0; // idx of candidate ratio that yields min diss
-    let mut min_diss_tonicity: Vec<f64> = vec![]; // tonicity context at min diss
+    let method_min_diss = method == 0;
 
-    for (freq_idx, candidate_freqs) in candidate_frequencies_per_freq.iter().enumerate() {
+    let mut best_diss = f64::MAX;
+    let mut best_cand_tonicity = -1.0;
+    let mut best_cand_freq_idx = 0; // idx of freqs that yields the best candidate
+    let mut best_cand_ratio_idx = 0; // idx of candidate ratio that yields the best candidate
+    let mut best_cand_tonicities: Vec<f64> = vec![]; // tonicity context when using best candidate
+
+    let max_trees = MAX_TREES_CANDIDATES / candidate_frequencies_per_freq.len();
+
+    let top_n_freq_tonicity_indices = {
+        let mut tonicity_indices: Vec<(usize, f64)> =
+            context.iter().enumerate().map(|(i, t)| (i, *t)).collect();
+        tonicity_indices.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        tonicity_indices
+            .iter()
+            .take(top_n_roots)
+            .map(|(i, _)| *i)
+            .collect::<Vec<usize>>()
+    };
+
+    for &freq_idx in &top_n_freq_tonicity_indices {
+        let candidate_freqs = &candidate_frequencies_per_freq[freq_idx];
         let results = graph_dissonance(
             freqs,
             candidate_freqs,
             context,
             SMOOTHING,
             elapsed_seconds,
+            max_trees,
             None,
         );
 
         for (cand_idx, diss) in results.iter().enumerate() {
-            let lower_diss = diss.dissonance < min_diss;
-            let same_diss_but_more_tonic_relative_note =
-                diss.dissonance == min_diss && context[freq_idx] > context[min_diss_freq_idx];
-            if lower_diss || same_diss_but_more_tonic_relative_note {
-                min_diss_freq_idx = freq_idx;
-                min_diss_ratio_idx = cand_idx;
-                min_diss_tonicity = diss.tonicity_context.clone();
+            if method_min_diss {
+                let lower_diss = diss.dissonance <= best_diss - DISS_EPSILON;
+                let same_diss_but_more_tonic_relative_note = diss.dissonance - best_diss
+                    <= DISS_EPSILON
+                    && context[freq_idx] > context[best_cand_freq_idx];
+                if lower_diss || same_diss_but_more_tonic_relative_note {
+                    best_cand_freq_idx = freq_idx;
+                    best_cand_ratio_idx = cand_idx;
+                    best_cand_tonicities = diss.tonicity_context.clone();
+                    best_diss = diss.dissonance;
+                    best_cand_tonicity = context[freq_idx];
+                }
+            } else {
+                // max_tonicity
+                let higher_tonicity = diss.tonicity_context[freq_idx] > best_cand_tonicity;
+                if higher_tonicity {
+                    best_cand_freq_idx = freq_idx;
+                    best_cand_ratio_idx = cand_idx;
+                    best_cand_tonicities = diss.tonicity_context.clone();
+                    best_diss = diss.dissonance;
+                    best_cand_tonicity = diss.tonicity_context[freq_idx];
+                }
             }
         }
     }
 
-    let mut output = vec![min_diss_freq_idx as f64, min_diss_ratio_idx as f64];
+    let mut output = vec![best_cand_freq_idx as f64, best_cand_ratio_idx as f64];
 
-    output.extend_from_slice(&min_diss_tonicity);
+    output.extend_from_slice(&best_cand_tonicities);
 
     output
 }

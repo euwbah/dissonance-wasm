@@ -14,6 +14,7 @@ pub static TREES: LazyLock<Vec<Vec<ST>>> = LazyLock::new(|| {
     // make trees with more than 8 nodes!
     for n in 2..=8 {
         let sts = gen_sts(n, 3, 3, 3);
+
         all_trees.push(sts);
     }
 
@@ -117,7 +118,6 @@ pub fn gen_sts(n: usize, max_depth: usize, max_siblings: usize, max_inversions: 
         let mut visited_mask = 1u64 << r;
         let mut preorder = vec![r];
         let mut queue = vec![r]; // Nodes whose children we need to assign
-        let mut subtree_keys_in_progress = vec![0; n];
 
         gen_sts_recursive(
             n,
@@ -131,10 +131,47 @@ pub fn gen_sts(n: usize, max_depth: usize, max_siblings: usize, max_inversions: 
             &mut queue,
             0, // Start processing queue at index 0
             &mut results,
-            &mut subtree_keys_in_progress,
         );
     }
     results
+}
+
+/// Recursively computes subtree keys for all nodes in the ST.
+///
+/// - `node`: current node to compute subtree key for
+/// - `final_st`: the complete [ST]
+/// - `subtree_keys`: mutable slice to store computed subtree keys, indexed by node.
+fn compute_subtree_keys(node: usize, final_st: &ST, subtree_keys: &mut [u64]) {
+    // Process all children first (post-order)
+    for &child in &final_st.children[node] {
+        compute_subtree_keys(child as usize, final_st, subtree_keys);
+    }
+
+    // Now compute this node's subtree key by merging children's keys
+    let mut key = 0u64;
+
+    // Mark this node as present in its own subtree
+    key |= 1u64 << (24 + node);
+
+    // Merge in all children's subtrees
+    for &child in &final_st.children[node] {
+        let child_usize = child as usize;
+        let child_key = subtree_keys[child_usize];
+
+        // Merge: OR in all nodes and adjacency bits from child
+        key |= child_key & 0xFFFFFF; // adjacency bits
+        key |= child_key & (0xFF << 24); // nodes mask
+
+        // Set the parent pointer for this child to current node
+        let parent_table_idx = 3 * child_usize;
+        key &= !(0b111u64 << parent_table_idx); // clear old parent bits
+        key |= (node as u64) << parent_table_idx; // set new parent
+    }
+
+    // Set root bits to this node
+    key |= (node as u64) << 32;
+
+    subtree_keys[node] = key;
 }
 
 /// Recursive helper for generating STs.
@@ -163,7 +200,6 @@ fn gen_sts_recursive(
     queue: &mut Vec<usize>,
     queue_idx: usize,
     results: &mut Vec<ST>,
-    subtree_keys_in_progress: &mut Vec<SubtreeKey>,
 ) {
     // Prune based on the partial preorder's inversion count
 
@@ -182,18 +218,20 @@ fn gen_sts_recursive(
         // populate adjacency list edges
         for (child, p_opt) in final_st.parents.iter().enumerate() {
             if let Some(p) = *p_opt {
-                final_st.edges.push(Edge { from: p, to: child as u8 });
+                final_st.edges.push(Edge {
+                    from: p,
+                    to: child as u8,
+                });
             }
         }
 
-        // Set bits 32-34 (from LSB, 0-indexed) of subtree keys to record root of each subtree.
-        //
-        // Copy pre-computed subtree keys from in-progress tracking
-        for node in 0..n {
-            // we have to set subtree root here, otherwise leaf nodes will root 0.
-            final_st.subtree_key[node] =
-                subtree_keys_in_progress[node] | ((st.root as SubtreeKey) << 32);
-        }
+        // Traverse all subtrees of completed ST to compute subtree keys.
+
+        let mut subtree_keys = vec![0u64; n];
+
+        compute_subtree_keys(final_st.root as usize, &final_st, &mut subtree_keys);
+
+        final_st.subtree_key = subtree_keys;
 
         results.push(final_st);
         return;
@@ -208,6 +246,8 @@ fn gen_sts_recursive(
     }
 
     let parent = queue[queue_idx];
+    assert!(parent < n);
+
     let parent_depth = depths[parent];
 
     let unvisited: Vec<usize> = (0..n).filter(|&i| (visited_mask & (1 << i)) == 0).collect();
@@ -244,7 +284,6 @@ fn gen_sts_recursive(
                 queue,
                 queue_idx + 1,
                 results,
-                subtree_keys_in_progress,
             );
         } else {
             // Generate all combinations of `num_children` elements from the `unvisited` pool
@@ -261,10 +300,6 @@ fn gen_sts_recursive(
                     depths[child] = parent_depth + 1;
                     new_visited |= 1 << child;
                     added_nodes.push(child);
-
-                    // Base case: initialize subtree at new child as its own root node (subtree root
-                    // data added later)
-                    subtree_keys_in_progress[child] = 1u64 << (24 + child);
                 }
 
                 let mut next_preorder = preorder.clone();
@@ -285,33 +320,13 @@ fn gen_sts_recursive(
                     &mut next_queue,
                     queue_idx + 1,
                     results,
-                    subtree_keys_in_progress,
                 );
-
-                // build parent's subtree key from children. After recursion, all children's subtree
-                // keys are complete, so we can aggregate into parent's key.
-
-                let mut parent_key = 1u64 << (24 + parent); // mark parent node present in subtree
-
-                for &child in &combination {
-                    // merge child's subtree
-                    parent_key |= subtree_keys_in_progress[child];
-
-                    // in the parent's subtree, it should have its children pointing to itself
-                    // (parent) in the parent table.
-                    let parent_table_idx = 3 * child;
-                    parent_key &= !(0b111u64 << parent_table_idx); // clear just in case
-                    parent_key |= (parent as u64) << parent_table_idx;
-                }
-
-                subtree_keys_in_progress[parent] = parent_key;
 
                 // backtrack
                 for &child in &combination {
                     st.parents[child] = None;
                     st.children[parent].pop();
                     depths[child] = 0;
-                    subtree_keys_in_progress[child] = 0; // reset children's key for different choice of children next round.
                 }
             }
         }
@@ -380,8 +395,8 @@ mod tests {
 
     #[test]
     fn test_combinations() {
-        let items = vec![0, 1, 2, 3];
-        let combs = combinations(&items, 2);
+        let items = vec![0, 2, 3, 7, 8];
+        let combs = combinations(&items, 3);
         for c in combs {
             println!("{:?}", c);
         }
@@ -444,7 +459,7 @@ mod tests {
     }
 
     #[test]
-    fn test_subtree_key_uniqueness() {
+    fn test_subtree_keys() {
         use std::collections::{HashMap, HashSet};
 
         // Maps SubtreeKey -> (root, nodes_mask, adjacency_list as string for debugging)
@@ -467,22 +482,118 @@ mod tests {
                 for node in 0..n {
                     let key = tree.subtree_key[node];
 
-                    // Extract components from the key
+                    // 00011110 000 000 000 001 110 001 000 000
+
+                    // Extract components from SubtreeKey
                     let adjacency_bits = key & 0xFFFFFF; // bits 0-23
                     let nodes_mask = ((key >> 24) & 0xFF) as u8; // bits 24-31
                     let root = ((key >> 32) & 0b111) as usize; // bits 32-34
 
-                    // Build adjacency list string for comparison
-                    let mut adj_list = Vec::new();
-                    for i in 0..8 {
-                        if (nodes_mask & (1 << i)) != 0 {
-                            let parent_bits = (adjacency_bits >> (3 * i)) & 0b111;
-                            adj_list.push((i, parent_bits as usize));
+                    // Build adjacency list as per key.
+                    //
+                    // Formatted as (parent, child).
+                    let mut adj_list_from_key = Vec::new();
+                    for i in 0..n {
+                        let parent_of_i = (adjacency_bits >> (3 * i)) & 0b111;
+                        let i_in_subtree = (nodes_mask & (1 << i)) != 0;
+                        if i_in_subtree {
+                            // ensure that adj_list doesn't include nodes not in the subtree
+                            assert!(
+                                (parent_of_i as usize) < n,
+                                "Invalid parent {} for node {} in subtree. Parent not inside node count {}",
+                                parent_of_i,
+                                i,
+                                n
+                            );
+
+                            if i != root {
+                                adj_list_from_key.push((parent_of_i as usize, i));
+                            } else {
+                                assert!(
+                                    parent_of_i == 0,
+                                    "Root node {} has non-zero parent {} in subtree",
+                                    i,
+                                    parent_of_i
+                                );
+                            }
+                        } else {
+                            assert!(
+                                parent_of_i == 0,
+                                "Node {} not in subtree but has parent {}",
+                                i,
+                                parent_of_i
+                            );
                         }
                     }
-                    adj_list.sort();
-                    let adj_str = format!("{:?}", adj_list);
+                    adj_list_from_key.sort();
 
+                    // Verify adjacency list matches actual subtree structure via DFS
+                    let mut actual_nodes_in_subtree = HashSet::new();
+                    let mut actual_adj_list = Vec::new();
+
+                    // DFS from node to collect all nodes and edges in its subtree
+                    let mut stack = vec![node];
+                    actual_nodes_in_subtree.insert(node);
+
+                    while let Some(current) = stack.pop() {
+                        for &child in &tree.children[current] {
+                            if !actual_nodes_in_subtree.contains(&(child as usize)) {
+                                actual_nodes_in_subtree.insert(child as usize);
+                                actual_adj_list.push((current, child as usize));
+                                stack.push(child as usize);
+                            }
+                        }
+                    }
+
+                    actual_adj_list.sort();
+
+                    // Verify nodes_mask matches actual nodes
+                    let mut expected_mask = 0u8;
+                    for &n in &actual_nodes_in_subtree {
+                        expected_mask |= 1 << n;
+                    }
+
+                    assert_eq!(
+                        nodes_mask,
+                        expected_mask,
+                        "Node mask mismatch for subtree at node {} in tree with root {}\n  \
+                        Key mask: {:08b}, Actual mask: {:08b}, {:?}",
+                        node,
+                        tree.root,
+                        nodes_mask,
+                        expected_mask,
+                        tree.print()
+                    );
+
+                    // Verify adjacency list matches
+                    assert_eq!(
+                        adj_list_from_key.len(), actual_adj_list.len(),
+                        "Adjacency list length mismatch for subtree at node {} in tree with root {}\n  \
+                        Key adj: {:?}, Actual adj: {:?}",
+                        node, tree.root, adj_list_from_key, actual_adj_list
+                    );
+
+                    for (key_entry, actual_entry) in adj_list_from_key.iter().zip(&actual_adj_list)
+                    {
+                        assert_eq!(
+                            key_entry, actual_entry,
+                            "Adjacency list entry mismatch for subtree at node {} in tree with root {}\n  \
+                            Key entry: {:?}, Actual entry: {:?}\n  \
+                            Full key adj: {:?}, Full actual adj: {:?}\nError in subtree key: {:b} {:?}",
+                            node, tree.root, key_entry, actual_entry, adj_list_from_key, actual_adj_list, key, tree.print()
+                        );
+                    }
+
+                    // 1 00000011 000 000 000 000 000 000 000 000
+
+                    // Verify root matches
+                    assert_eq!(
+                        root, node,
+                        "Root mismatch: key says {}, but subtree is rooted at {}",
+                        root, node
+                    );
+
+                    let adj_str = format!("{:?}", adj_list_from_key);
                     let subtree_signature = (root, nodes_mask, adj_str.clone());
 
                     // Check if this exact subtree (same structure) was seen before

@@ -1,0 +1,71 @@
+
+running 1 test
+
+
+=== MAX_TREES = 18446744073709551615 ===
+Benchmark time (142 6-note 10-candidate iters): 10.0458476 seconds. (14.13519353011089 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5377339992333904, tonicity: [0.18002023084205093, 0.15909286025132283, 0.15348772368029945, 0.1627118860164894, 0.15570388852891154, 0.1590510041130048, 0.029932406567921024]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 20000 ===
+Benchmark time (141 6-note 10-candidate iters): 10.0429054 seconds. (14.039761840234002 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5377248849132501, tonicity: [0.17988104210798891, 0.15911441671002594, 0.1535377764579727, 0.16271555544482016, 0.15574258658603835, 0.1590761689179511, 0.029932453775202872]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 10000 ===
+Benchmark time (143 6-note 10-candidate iters): 10.0016052 seconds. (14.29770493240425 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.537743152470425, tonicity: [0.18015974449432864, 0.15907122728341352, 0.15343765623120897, 0.1627081070922976, 0.15566514757696204, 0.1590257585359457, 0.02993235878584358]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 5000 ===
+Benchmark time (191 6-note 10-candidate iters): 10.058831 seconds. (18.98828999115305 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5388464356796752, tonicity: [0.1873567890717728, 0.15795377500250674, 0.15083581733682216, 0.1624595756792588, 0.1538692797671602, 0.15759126795717118, 0.029933495185308075]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 2500 ===
+Benchmark time (361 6-note 10-candidate iters): 10.0012688 seconds. (36.095420213083365 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5399485224283189, tonicity: [0.22648247107949723, 0.15057484092925466, 0.1406736027833574, 0.15719734148624004, 0.14485563487531183, 0.150343861560041, 0.029872247286297768]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 1000 ===
+Benchmark time (500 6-note 10-candidate iters): 6.0210256 seconds. (83.04233086137351 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5469606224618418, tonicity: [0.27849698437218057, 0.14125546208177422, 0.12764070621062157, 0.14849983663283894, 0.1343111612998853, 0.13991080158169475, 0.029885047821004585]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 500 ===
+Benchmark time (500 6-note 10-candidate iters): 3.0749186 seconds. (162.60593044641897 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5483764583541461, tonicity: [0.26666365549106963, 0.14385612359553135, 0.13195171463371386, 0.15058836097702058, 0.13521524972866156, 0.14182190132065034, 0.029902994253352678]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 250 ===
+test polyadic::tests::bench_max_trees_deterioration has been running for over 60 seconds
+Benchmark time (500 6-note 10-candidate iters): 1.7087951000000001 seconds. (292.6038352989191 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5517239352989377, tonicity: [0.271807987828909, 0.14435628360638428, 0.13119516691110594, 0.14745568700369144, 0.13376365921293318, 0.1415701896056374, 0.029851025831338623]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+
+
+=== MAX_TREES = 100 ===
+Benchmark time (500 6-note 10-candidate iters): 0.8654707 seconds. (577.7203087291113 iter/sec)
+Max tonicity candidate: 3 (1700.00c). dissonance: 0.5390447519117809, tonicity: [0.27181371610930805, 0.14273354756867804, 0.13024009744127812, 0.1500109124773596, 0.13401439691166853, 0.14129491524896157, 0.029892414242746107]
+Tonicity ranking of candidates: [0, 3, 1, 5, 4, 2, 6]
+test polyadic::tests::bench_max_trees_deterioration ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 61.82s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

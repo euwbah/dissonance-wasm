@@ -1,16 +1,15 @@
 //! Polyadic dissonance & tonicity of notes.
 
 use core::f64;
-use std::{
-    collections::{BTreeSet, HashMap},
-    ops::Deref,
-};
+use std::{collections::BTreeSet, ops::Deref};
 
 use compute::prelude::{max, softmax};
 
+use rapidhash::RapidHashMap as HashMap;
+
 use crate::{
     dyad_lookup::{DyadLookup, RoughnessType, TonicityLookup},
-    tree_gen::{ST, SubtreeKey, TREES, is_node_part_of_subtree},
+    tree_gen::{is_node_part_of_subtree, SubtreeKey, ST, TREES},
     utils::hz_to_cents,
 };
 
@@ -105,7 +104,21 @@ const DEEP_TREE_LIKELIHOOD_PENALTY: f64 = 2.2;
 ///
 /// If this value is too low, the global tonicity scores will not sufficiently affect likelihood of
 /// trees, which may make the model insensitive to the current harmonic context/perceived root.
-const GLOBAL_TONICITY_LIKELIHOOD_SCALING: f64 = (2u128 << 8) as f64;
+const GLOBAL_TONICITY_LIKELIHOOD_SCALING: f64 = (2u128 << 10) as f64;
+
+/// The maximum increase/decrease in likelihood a subtree can have due to global tonicity alignment.
+///
+/// This value is the natural log of the maximum multiplicative factor the natural log is allowed to
+/// have.
+///
+/// A value of 1.0 means that even if a parent note has significantly higher/lower global tonicity
+/// than the child note, the maximum increase/decrease in likelihood the subtree can have is e^1.0 =
+/// 2.718x.
+///
+/// HOW TO TUNE: if the global tonicity quickly becomes asymptotic (where only one note has nearly
+/// 100% tonicity), try decreasing this value to limit the feedback effect of global tonicity
+/// alignment on likelihoods.
+const GLOBAL_TONICITY_LIKELIHOOD_MAX_LN: f64 = 1.0;
 
 /// How much more likely is a subtree if the parent-child dyad connecting the subtree to its parent
 /// has parent dyad tonicity 1.0, than if the parent dyad tonicity was 0.0? (Relative to the
@@ -146,7 +159,8 @@ const LOW_NOTE_ROOT_LIKELIHOOD_SCALING: f64 = 1.04;
 /// [NEW_CANDIDATE_TONICITY_RATIO] is low, then a new note will enter the global tonicity context
 /// with very low score, which will skew the global tonicity context very heavily towards the
 /// argmax. If [GLOBAL_TONICITY_LIKELIHOOD_SCALING] is too high, there can be a feedback loop which
-/// causes only one note to have the majority of the tonicity score.
+/// causes only one note to have the majority of the tonicity score: balance this by decreasing
+/// [GLOBAL_TONICITY_LIKELIHOOD_MAX_LN].
 ///
 /// If this value is too high, the global tonicity scores will be too uniform, which will cause the
 /// model to lose the ability to make contextually informed dissonance ratings. To counteract the
@@ -555,7 +569,8 @@ fn build_mask_table(asc_idx_to_og_idx: &[u8]) -> Vec<u8> {
 ///   `tonicity_context` will be normalized to sum to 1.
 ///
 ///   If the sum of tonicity_context is 0.0 (i.e., no context), the model will assume initialize the
-///   tonicity context based on the dyadic heuristic tonicities computed from [dyadic_tonicity_heur].
+///   tonicity context based on the dyadic heuristic tonicities computed from
+///   [dyadic_tonicity_heur].
 ///
 /// - `smoothing`: How quickly the updated tonicity context should approach the target tonicity. 0.0
 ///   = no smoothing, 1.0 = no movement at all.
@@ -563,12 +578,14 @@ fn build_mask_table(asc_idx_to_og_idx: &[u8]) -> Vec<u8> {
 /// - `elapsed_seconds`: time elapsed used to scale smoothing - higher elapsed time = less
 ///   smoothing.
 ///
-/// - `target_tonicity_temperature`: softmax temperature which controls opinionatedness of target
-///   tonicity (lower = more opinionated). 0.5 is recommended.
+/// - `max_trees`: maximum number of interpretation trees to use. If there are more than `max_trees`
+///   possible interpretation trees, a random subset of pre-computed trees will be used.
 ///
-/// If a new loud note is played, the tonicities can be jerked by setting smoothing lower or
-/// elapsed_seconds higher than usual. Rhythmic entrainment can be implemented by setting smoothing
-/// lower at regular time intervals and higher at others.
+/// - `debug`: optional debug object to collect per-root complexities and likelihoods. Only use in
+///   tests.
+///
+/// Rhythmic entrainment can be implemented by setting smoothing lower at regular time intervals and
+/// higher at others.
 ///
 /// ### Returns
 ///
@@ -583,6 +600,7 @@ pub fn graph_dissonance(
     tonicity_context: &[f64],
     smoothing: f64,
     elapsed_seconds: f64,
+    max_trees: usize,
     mut debug: Option<&mut GraphDissDebug>,
 ) -> Vec<Dissonance> {
     assert!(
@@ -631,6 +649,17 @@ pub fn graph_dissonance(
 
     let mut results = vec![];
 
+    let st_trees = TREES
+        .get(num_notes)
+        .expect("No precomputed trees for this number of notes");
+
+    let st_trees_indices = if st_trees.len() > max_trees {
+        // Randomly sample max_trees number of trees.
+        fastrand::choose_multiple(0..st_trees.len(), max_trees)
+    } else {
+        (0..st_trees.len()).collect::<Vec<usize>>()
+    };
+
     if num_candidates == 0 {
         // First, we need an index mapping of the frequencies in low-to-high pitch order.
         //
@@ -664,13 +693,6 @@ pub fn graph_dissonance(
             .iter()
             .map(|&idx| tonicity_context[idx as usize])
             .collect();
-
-        // No new candidate note: don't use heuristic tonicities, instead use only provided
-        // tonicity_context.
-
-        let st_trees = TREES
-            .get(num_notes)
-            .expect("No precomputed trees for this number of notes");
 
         // Function to obtain precomputed dyad complexity of pitches indexed in ASCENDING PITCH
         // order.
@@ -706,9 +728,10 @@ pub fn graph_dissonance(
 
         let mut likelihood_exp_sum = 0.0;
 
-        let mut memoized_dfs_results: HashMap<SubtreeKey, DFSResult> = HashMap::new();
+        let mut memoized_dfs_results: HashMap<SubtreeKey, DFSResult> = HashMap::default();
 
-        for tree in st_trees.iter() {
+        for tree_idx in &st_trees_indices {
+            let tree = &st_trees[*tree_idx];
             let (comp, like) = dfs_st_comp_likelihood(
                 &cents_asc_order,
                 tree,
@@ -771,7 +794,7 @@ pub fn graph_dissonance(
     // If candidates are supplied, we have to repeat the above process with each candidate
     // as the last indexed note provided freqs.
 
-    let mut memoized_dfs_results: HashMap<OGIdxSubtreeKey, DFSResult> = HashMap::new();
+    let mut memoized_dfs_results: HashMap<OGIdxSubtreeKey, DFSResult> = HashMap::default();
 
     // When testing different candidate notes, high probability that the ordering of notes end up
     // being the same. Don't recompute the mask table every time.
@@ -780,7 +803,7 @@ pub fn graph_dissonance(
     // - Value: mask table mapping asc pitch order bitmask to og order bitmask.
     //
     // If og_to_asc_idxs order is same, just reuse the same mask table.
-    let mut memoized_mask_tables: HashMap<u32, Vec<u8>> = HashMap::new();
+    let mut memoized_mask_tables: HashMap<u32, Vec<u8>> = HashMap::default();
 
     for candidate_idx in 0..num_candidates {
         let curr_candidate_cents = candidate_cents[candidate_idx];
@@ -790,7 +813,7 @@ pub fn graph_dissonance(
             combined_cents.sort_by(|a, b| a.partial_cmp(b).unwrap());
             combined_cents
         };
-        let asc_to_og_idxs : Vec<u8> = {
+        let asc_to_og_idxs: Vec<u8> = {
             let mut pairs: Vec<(usize, f64)> = cents
                 .iter()
                 .cloned()
@@ -809,9 +832,10 @@ pub fn graph_dissonance(
             inv
         };
 
-        let og_to_asc_hash: u32 = og_to_asc_idxs.iter().enumerate().fold(0u32, |acc, (i, &v)| {
-            acc | ((v as u32) << (i * 3))
-        });
+        let og_to_asc_hash: u32 = og_to_asc_idxs
+            .iter()
+            .enumerate()
+            .fold(0u32, |acc, (i, &v)| acc | ((v as u32) << (i * 3)));
 
         let og_idx_mask_lut = if let Some(mask_table) = memoized_mask_tables.get(&og_to_asc_hash) {
             mask_table.clone()
@@ -836,10 +860,6 @@ pub fn graph_dissonance(
         // where the candidate note is at the last index.
         let new_tonicity_ctx: Vec<f64> =
             scale_candidate_toncity(&tonicity_context, heur_candidate_tonicity);
-
-        let st_trees = TREES
-            .get(num_notes)
-            .expect("No precomputed trees for this number of notes");
 
         // Computes dyad complexities for (from, to) indices based on ascending pitch order.
         let dyad_comp = |from: u8, to: u8| {
@@ -898,7 +918,8 @@ pub fn graph_dissonance(
         let mut comp_like_per_root_lo_to_hi: Vec<Vec<(f64, f64)>> = vec![vec![]; num_notes];
         let mut likelihood_exp_sum = 0.0;
 
-        for tree in st_trees.iter() {
+        for tree_idx in &st_trees_indices {
+            let tree = &st_trees[*tree_idx];
             let (complexity, likelihood) = dfs_st_comp_likelihood(
                 &cents_asc_order,
                 tree,
@@ -1089,7 +1110,10 @@ fn compute_child_likelihood_contribution(
 
     let global_tonicity_logistic = 1.0 / (1.0 + (1.0 - global_tonicity_alignment_ratio).exp());
     let global_tonicity_alignment_ln =
-        GLOBAL_TONICITY_LIKELIHOOD_SCALING.ln() * (global_tonicity_logistic - 0.5);
+        (GLOBAL_TONICITY_LIKELIHOOD_SCALING.ln() * (global_tonicity_logistic - 0.5)).clamp(
+            -GLOBAL_TONICITY_LIKELIHOOD_MAX_LN,
+            GLOBAL_TONICITY_LIKELIHOOD_MAX_LN,
+        );
 
     let dyadic_tonicity_alignment_ln =
         DYADIC_TONICITY_LIKELIHOOD_SCALING.ln() * (dyadic_tonicity - 0.5);
@@ -1147,8 +1171,7 @@ fn remap_subtree_key_to_og_indexing(
     //
     // Remap each parent idx
     for node_idx in 0..asc_idx_to_og_idx.len() {
-        let asc_order_parent_idx =
-            ((subtree_key >> (node_idx * 3)) & 0b111) as usize; // 3 bits per node
+        let asc_order_parent_idx = ((subtree_key >> (node_idx * 3)) & 0b111) as usize; // 3 bits per node
 
         let og_order_parent_idx = asc_idx_to_og_idx[asc_order_parent_idx];
 
@@ -1169,7 +1192,6 @@ fn remap_subtree_key_to_og_indexing(
     new_key |= og_order_root_idx << 32;
 
     new_key
-
 }
 
 /// Evaluate spanning tree complexity & likelihood using DFS.
@@ -1268,20 +1290,23 @@ where
                     subtree_complexity: 0.0,
                     subtree_size: 1,
                     subtree_likelihood: 1.0,
-                    candidate_idx: curr_candidate_idx
+                    candidate_idx: curr_candidate_idx,
                 });
                 continue;
             }
 
             let asc_order_subtree_key = &tree.subtree_key[node];
             let reidx_subtree_key = if curr_candidate_idx != u8::MAX {
-                remap_subtree_key_to_og_indexing(*asc_order_subtree_key, asc_idx_to_og_idx, og_idx_mask_lut)
+                remap_subtree_key_to_og_indexing(
+                    *asc_order_subtree_key,
+                    asc_idx_to_og_idx,
+                    og_idx_mask_lut,
+                )
             } else {
                 // We don't have to care about preserving original freqs index through automorphisms if
                 // no candidate notes are being evaluated.
                 *asc_order_subtree_key
             };
-
 
             if let Some(memoized_result) = memoized_dfs_results.get_mut(&reidx_subtree_key) {
                 // We can only reuse memoized result if
@@ -1289,9 +1314,11 @@ where
                 // - Subtree contains candidate index, but this particular subtree has already been
                 //   computed with curr_candidate_idx.
 
-                let subtree_already_computed_with_curr_cand = memoized_result.candidate_idx == curr_candidate_idx;
+                let subtree_already_computed_with_curr_cand =
+                    memoized_result.candidate_idx == curr_candidate_idx;
 
-                let candidate_in_subtree = is_node_part_of_subtree(reidx_subtree_key, cents_asc_order.len() - 1);
+                let candidate_in_subtree =
+                    is_node_part_of_subtree(reidx_subtree_key, cents_asc_order.len() - 1);
 
                 if !candidate_in_subtree && !subtree_already_computed_with_curr_cand {
                     // Memoized result can carry forward from previous candidate's computation,
@@ -1307,7 +1334,6 @@ where
                     results[node] = Some(memoized_result.clone());
                     continue;
                 }
-
             }
 
             // Sum of each child's complexity contribution
@@ -1379,13 +1405,10 @@ where
                 subtree_complexity: sum_complexities,
                 subtree_size: 1 + child_subtree_sizes.iter().sum::<u8>(),
                 subtree_likelihood: mult_likelihoods,
-                candidate_idx: curr_candidate_idx
+                candidate_idx: curr_candidate_idx,
             });
 
-            memoized_dfs_results.insert(
-                reidx_subtree_key,
-                results[node].as_ref().unwrap().clone(),
-            );
+            memoized_dfs_results.insert(reidx_subtree_key, results[node].as_ref().unwrap().clone());
         }
     }
 
@@ -1542,9 +1565,9 @@ pub fn dyadic_tonicity_heur(
         )
     }
 
-    let mut tonicity_map = HashMap::new();
-    let mut mult_roughness_map = HashMap::new();
-    let mut add_roughness_map = HashMap::new();
+    let mut tonicity_map = HashMap::default();
+    let mut mult_roughness_map = HashMap::default();
+    let mut add_roughness_map = HashMap::default();
 
     // This is an unnormalized vector of tonicities of the notes in `cents`, amongst themselves.
     let mut existing_tonicities: Tonicities = vec![0.0; cents.len()];
@@ -1711,6 +1734,8 @@ mod tests {
     use std::time::Instant;
     use std::{result, usize};
 
+    const MAX_TREES: usize = usize::MAX;
+
     #[test]
     fn test_dyadic_tonicity() {
         dyadic_tonicity_single(&[0.0, 700.0], "C5");
@@ -1799,8 +1824,16 @@ mod tests {
             .map(|x| cents_to_hz(440.0, *x))
             .collect::<Vec<f64>>();
 
-        let diss_existing =
-            graph_dissonance(&freqs, &[], &vec![0f64; freqs.len()], 0.9, 5.0, None)[0].clone();
+        let diss_existing = graph_dissonance(
+            &freqs,
+            &[],
+            &vec![0f64; freqs.len()],
+            0.9,
+            5.0,
+            MAX_TREES,
+            None,
+        )[0]
+        .clone();
 
         let diss_candidate = graph_dissonance(
             &freqs[..(freqs.len() - 1)],
@@ -1808,6 +1841,7 @@ mod tests {
             &vec![0f64; freqs.len() - 1],
             0.9,
             5.0,
+            MAX_TREES,
             None, // NOTE: debug values are not implemented for candidate graph diss.
         )[0]
         .clone();
@@ -1842,7 +1876,7 @@ mod tests {
             } else {
                 &bench_freqs_2
             };
-            let res = &graph_dissonance(freqs, &[], &bench_ctx, 0.9, 0.01, None)[0];
+            let res = &graph_dissonance(freqs, &[], &bench_ctx, 0.9, 0.01, MAX_TREES, None)[0];
             bench_ctx.copy_from_slice(&res.tonicity_context);
 
             if iter % 10 == 0 {
@@ -2078,8 +2112,15 @@ mod tests {
             } else {
                 Some(GraphDissDebug::new(SHOW_N_TREES, cents.len()))
             };
-            let diss =
-                graph_dissonance(&freqs, &[], &context, 0.9, elapsed_seconds, debug.as_mut());
+            let diss = graph_dissonance(
+                &freqs,
+                &[],
+                &context,
+                0.9,
+                elapsed_seconds,
+                MAX_TREES,
+                debug.as_mut(),
+            );
 
             results_per_iter.push(GraphDissTestResult {
                 diss: diss[0].clone(),
@@ -2149,8 +2190,16 @@ mod tests {
             .iter()
             .map(|x| cents_to_hz(440.0, *x))
             .collect::<Vec<f64>>();
-        let diss =
-            graph_dissonance(&freqs, &[], &vec![0f64; cents.len()], 0.9, 1.0, None)[0].clone();
+        let diss = graph_dissonance(
+            &freqs,
+            &[],
+            &vec![0f64; cents.len()],
+            0.9,
+            1.0,
+            MAX_TREES,
+            None,
+        )[0]
+        .clone();
         println!("Starting context");
         println!("{:#?}\n", diss);
 
@@ -2162,6 +2211,7 @@ mod tests {
             &diss.tonicity_context,
             0.9,
             1.0,
+            MAX_TREES,
             None,
         );
 
@@ -2197,6 +2247,7 @@ mod tests {
             &vec![0f64; freqs.len()],
             0.9,
             0.1,
+            MAX_TREES,
             debug_existing.as_mut(),
         )[0]
         .clone();
@@ -2207,6 +2258,7 @@ mod tests {
             &vec![0f64; freqs.len() - 1],
             0.9,
             0.1,
+            MAX_TREES,
             None, // NOTE: debug values are not implemented for candidate graph diss.
         )[0]
         .clone();
@@ -2240,6 +2292,7 @@ mod tests {
             &heur_tonicities_with_cand_as_new_note,
             0.9,
             0.1,
+            MAX_TREES,
             debug_candidate_simul.as_mut(),
         )[0]
         .clone();
@@ -2348,10 +2401,55 @@ mod tests {
         inversions
     }
 
+    /// Benchmark [graph_dissonance] with N notes, and 0 candidates.
     #[test]
-    fn bench_candidate_8_notes() {
-        let cents = vec![0.0, 200.0, 400.0, 700.0, 900.0, 1400.0, 1600.0];
-        let candidate_cents = vec![1200.0, 1800.0, 2100.0, 2400.0, 2700.0];
+    fn bench_n_notes() {
+        const ITERS: usize = 1000;
+        const N_NOTES: usize = 7;
+        let cents =
+            vec![0.0, 200.0, 400.0, 700.0, 900.0, 1400.0, 1600.0, 1800.0][..N_NOTES].to_vec();
+        let freqs = cents
+            .iter()
+            .map(|x| cents_to_hz(130.812, *x))
+            .collect::<Vec<f64>>();
+
+        let mut tonicity_context = vec![0.0; cents.len()];
+        let start_time = Instant::now();
+        for iter in 0..ITERS {
+            let res =
+                &graph_dissonance(&freqs, &[], &tonicity_context, 0.9, 0.01, MAX_TREES, None)[0];
+            tonicity_context.copy_from_slice(&res.tonicity_context);
+
+            if iter % (ITERS / 20) == 0 {
+                println!(
+                    "Bench iter {}: diss: {}, ctx: {:?}",
+                    iter, res.dissonance, res.tonicity_context
+                );
+            }
+        }
+        let elapsed = start_time.elapsed();
+        println!(
+            "Benchmark time ({} {}-note iters): {} seconds",
+            ITERS,
+            N_NOTES,
+            elapsed.as_secs_f64()
+        );
+    }
+
+    /// Benchmark [graph_dissonance] with N existing notes and 10 candidates, for ITERS iterations.
+    ///
+    /// IMPORTANT: Run test with --release flag.
+    #[test]
+    fn bench_candidate_n_notes() {
+        const ITERS: usize = 500;
+        const N_NOTES: usize = 7; // how many notes per iter including candidate
+        const N_CANDIDATES: usize = 10;
+        let cents = vec![0.0, 200.0, 400.0, 700.0, 900.0, 1400.0, 1600.0][..(N_NOTES - 1)].to_vec();
+        let candidate_cents = vec![
+            1500.0, 1550.0, 1650.0, 1700.0, 1750.0, 1800.0, 1900.0, 2000.0, 2100.0, 2170.0, 1486.0,
+            1536.0, 1636.0, 1686.0, 1736.0, 1786.0, 1886.0, 1986.0, 2086.0, 2186.0,
+        ][..N_CANDIDATES]
+            .to_vec();
         let freqs = cents
             .iter()
             .map(|x| cents_to_hz(130.812, *x))
@@ -2360,19 +2458,42 @@ mod tests {
             .iter()
             .map(|x| cents_to_hz(130.812, *x))
             .collect::<Vec<f64>>();
-        let start_time = Instant::now();
+
+        bench_candidates(&freqs, &candidate_freqs, ITERS, 1000, MAX_TREES, true);
+    }
+
+    /// Benchmark [graph_dissonance] with N existing notes and M candidates, for ITERS iterations.
+    ///
+    /// Returns the last iterations Vec of Dissonance results for each candidate.
+    fn bench_candidates(
+        freqs: &[f64],
+        candidate_freqs: &[f64],
+        iters: usize,
+        max_runtime_secs: u64,
+        max_trees: usize,
+        show_progress: bool,
+    ) -> Vec<Dissonance> {
         let mut tonicity_context = vec![0.0; freqs.len() + 1];
-        for iter in 0..20 {
-            let cands = graph_dissonance(
+
+        let mut last_iter_diss = vec![];
+
+        let start_time = Instant::now();
+
+        let mut last_iter = 0;
+
+        for iter in 0..iters {
+            last_iter_diss = graph_dissonance(
                 &freqs,
                 &candidate_freqs,
                 &tonicity_context[..freqs.len()],
                 0.9,
                 0.01,
+                max_trees,
                 None,
             );
 
-            let max_tonicity_cand_idx = cands.iter()
+            let max_tonicity_cand_idx = last_iter_diss
+                .iter()
                 .enumerate()
                 .max_by(|a, b| {
                     a.1.tonicity_context
@@ -2384,12 +2505,158 @@ mod tests {
                 .map(|(idx, _)| idx)
                 .unwrap();
 
-            println!("Bench iter {}: max tonicity cands idx: {}", iter, max_tonicity_cand_idx);
+            tonicity_context
+                .copy_from_slice(&last_iter_diss[max_tonicity_cand_idx].tonicity_context);
+
+            if iter % (iters / 20) == 0 && show_progress {
+                println!(
+                    "Bench iter {}: max tonicity cands idx: {}, tonicities: {:?}",
+                    iter, max_tonicity_cand_idx, tonicity_context
+                );
+            }
+
+            last_iter = iter;
+
+            let elapsed = start_time.elapsed().as_secs();
+
+            if elapsed >= max_runtime_secs {
+                break;
+            }
         }
         let elapsed = start_time.elapsed();
+
         println!(
-            "Benchmark time (20 8-note candidate iters): {} seconds",
-            elapsed.as_secs_f64()
+            "Benchmark time ({} {}-note {}-candidate iters): {} seconds. ({} iter/sec)",
+            last_iter + 1,
+            freqs.len(),
+            candidate_freqs.len(),
+            elapsed.as_secs_f64(),
+            (last_iter + 1) as f64 / elapsed.as_secs_f64(),
         );
+
+        last_iter_diss
+    }
+
+    /// Compares the scores for various MAX_TREES settings for candidate selection & resulting tonicity.
+    #[test]
+    fn bench_max_trees_deterioration() {
+        let max_trees_vals = vec![usize::MAX, 20000, 10000, 5000, 2500, 1000, 500, 250, 100];
+
+        const N_NOTES: usize = 7; // how many notes per iter including candidate
+        const N_CANDIDATES: usize = 10;
+
+        const RUN_TIME_PER_MAX_TREES: u64 = 10; // how many seconds to run per MAX_TREES setting
+
+        const ITERS: usize = 500;
+
+        let cents = vec![0.0, 200.0, 400.0, 700.0, 900.0, 1400.0, 1600.0][..(N_NOTES - 1)].to_vec();
+        let candidate_cents = vec![
+            1500.0, 1550.0, 1650.0, 1700.0, 1750.0, 1800.0, 1900.0, 2000.0, 2100.0, 2170.0, 1486.0,
+            1536.0, 1636.0, 1686.0, 1736.0, 1786.0, 1886.0, 1986.0, 2086.0, 2186.0,
+        ][..N_CANDIDATES]
+            .to_vec();
+        let freqs = cents
+            .iter()
+            .map(|x| cents_to_hz(130.812, *x))
+            .collect::<Vec<f64>>();
+        let candidate_freqs = candidate_cents
+            .iter()
+            .map(|x| cents_to_hz(130.812, *x))
+            .collect::<Vec<f64>>();
+
+        for &max_trees in &max_trees_vals {
+            println!("\n\n=== MAX_TREES = {} ===", max_trees);
+            let last_diss = bench_candidates(
+                &freqs,
+                &candidate_freqs,
+                ITERS,
+                RUN_TIME_PER_MAX_TREES,
+                max_trees,
+                false,
+            );
+
+            let max_tonicity_cand_idx = last_diss
+                .iter()
+                .enumerate()
+                .max_by(|a, b| {
+                    a.1.tonicity_context
+                        .last()
+                        .unwrap()
+                        .partial_cmp(b.1.tonicity_context.last().unwrap())
+                        .unwrap()
+                })
+                .map(|(idx, _)| idx)
+                .unwrap();
+
+            let max_tonicity_cand = &last_diss[max_tonicity_cand_idx];
+
+            println!(
+                "Max tonicity candidate: {} ({:.2}c). dissonance: {}, tonicity: {:?}",
+                max_tonicity_cand_idx,
+                candidate_cents[max_tonicity_cand_idx],
+                max_tonicity_cand.dissonance,
+                max_tonicity_cand.tonicity_context,
+            );
+
+            let tonicities_idx_highest_to_lowest = {
+                let mut idxs: Vec<usize> = (0..max_tonicity_cand.tonicity_context.len()).collect();
+                idxs.sort_by(|&a, &b| {
+                    max_tonicity_cand
+                        .tonicity_context[b]
+                        .partial_cmp(&max_tonicity_cand.tonicity_context[a])
+                        .unwrap()
+                });
+                idxs
+            };
+
+            println!("Tonicity ranking of candidates: {:?}", tonicities_idx_highest_to_lowest);
+        }
+    }
+
+    /// Test the distribution of dissonance scores for N = 2, ..., 8 notes randomly distributed over C3 - C6.
+    #[test]
+    fn test_diss_distribution() {
+
+        use compute::statistics::*;
+        use histo::Histogram;
+
+        fn gen_rand_cents(min: f64, max: f64) -> f64 {
+            let rand_unif = fastrand::f64();
+
+            rand_unif * (max - min) + min
+        }
+
+        for n in 2..=8 {
+            let mut diss_scores = vec![];
+            let mut histogram = Histogram::with_buckets(10);
+            for _ in 0..1000 {
+                let cents: Vec<f64> = (0..n)
+                    .map(|_| gen_rand_cents(0.0, 3600.0))
+                    .collect();
+                let freqs = cents
+                    .iter()
+                    .map(|x| cents_to_hz(261.63 / 2.0, *x))
+                    .collect::<Vec<f64>>();
+                let diss = graph_dissonance(
+                    &freqs,
+                    &[],
+                    &vec![0f64; cents.len()],
+                    0.9,
+                    0.1,
+                    800,
+                    None,
+                )[0]
+                .clone();
+                diss_scores.push(diss.dissonance);
+                histogram.add((diss.dissonance * 10000.0) as u64);
+            }
+
+            println!("Dissonance stats for {n} random notes in C3 - C6:");
+            println!("   Min: {}", min(&diss_scores));
+            println!("   Max: {}", max(&diss_scores));
+            println!("  Mean: {}", mean(&diss_scores));
+            println!("   Std: {}", std(&diss_scores));
+            println!("{}", histogram);
+        }
     }
 }

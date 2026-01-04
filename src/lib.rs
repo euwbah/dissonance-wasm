@@ -38,11 +38,18 @@ const S_1: f64 = 0.0207;
 const S_2: f64 = 18.96;
 
 /// Pre load things that need to be pre-calculated.
+#[wasm_bindgen(js_name=loadLookupTables)]
 pub fn load() -> bool {
     println!("Loading dyad lookup...");
     DyadLookup::get_roughness(700.0, RoughnessType::TonicityNormalized);
+
     println!("Loading tonicity lookup...");
     TonicityLookup::dyad_tonicity(701.9);
+
+    println!("Loading interpretation trees");
+    let tree_8 = tree_gen::TREES.get(8);
+    println!("No. 8-note trees: {}", tree_8.unwrap().len());
+
     println!("Load complete.");
     return true;
 }

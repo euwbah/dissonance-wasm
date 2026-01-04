@@ -35,3 +35,7 @@ melspectrograms
 Xenharmonic
 rs
 memoization
+memoizing
+Memoizing
+memoizations
+detemper

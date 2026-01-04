@@ -5,8 +5,10 @@
 //! Otherwise, the changes made to the algorithm would not be applied.
 
 use compute::predict::PolynomialRegressor;
-use rayon::prelude::*;
 use std::sync::OnceLock;
+
+#[cfg(not(target_family = "wasm"))]
+use rayon::prelude::*;
 
 use crate::{roughness_codegen::*, sethares_with_harms, tonicity_codegen::*, utils::cents_to_hz};
 
