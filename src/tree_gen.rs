@@ -9,6 +9,9 @@ pub static TREES: LazyLock<Vec<Vec<ST>>> = LazyLock::new(|| {
     let mut all_trees = vec![vec![], vec![]];
 
     // Generate STs for 1 to 8 nodes
+    //
+    // IMPORTANT: Because of the usage of bitmasks for optimizing edges and subtree keys, we cannot
+    // make trees with more than 8 nodes!
     for n in 2..=8 {
         let sts = gen_sts(n, 3, 3, 3);
         all_trees.push(sts);
@@ -24,6 +27,23 @@ pub struct Edge {
     pub to: usize,
 }
 
+/// A key for representing the entire subtree rooted at a given node.
+///
+/// This key is optimized so that it is easy to convert a subtree into a key, and optimized for
+/// space such that every parent node for every tree can have one pregenerated key in RAM.
+///
+/// No two subtrees should have the same key, but we don't have to care whether or not the subtree
+/// is easily reconstructable from the key.
+///
+/// - Bits 0-23 (from LSB) are reserved to store an adjacency list where the i-th group of 3 bits
+///   (from LSB) is the parent node number of node i. If node i is a root, that those 3 bits will be
+///   set to 0.
+///
+/// - Bits 24-31 (from LSB) stores the nodes present in the subtree as a bitmask (where node 0 is bit 24).
+///
+/// - Bits 32-34 (from LSB) store the root node number (0-7).
+pub type SubtreeKey = u64;
+
 /// A spanning tree of the complete graph of N notes.
 #[derive(Debug, Clone)]
 pub struct ST {
@@ -36,6 +56,17 @@ pub struct ST {
     ///
     /// Root node has no parent.
     pub parents: Vec<Option<usize>>,
+
+    /// Unique [SubtreeKey] identifier of the subtree at each node. The index corresponds to which
+    /// node (0 to 7 inclusive). Across, different [ST]s, identical subtrees should have identical
+    /// subtree keys.
+    ///
+    /// If the node is a leaf, the subtree key will contain empty adjacency list but will record the
+    /// leaf node itself as the subtree root (bits 32-34 from LSB).
+    ///
+    /// This lookup is used in computations across many trees so that the results for identical
+    /// subtrees can be memoized.
+    pub subtree_key: Vec<SubtreeKey>,
 
     /// Lookup of which children each node has in the ST.
     ///
@@ -62,13 +93,16 @@ impl ST {
 /// Notes/nodes must be indexed in ascending pitch order so that the pre-order derangements heuristic
 /// is valid.
 pub fn gen_sts(n: usize, max_depth: usize, max_siblings: usize, max_inversions: usize) -> Vec<ST> {
-    if n == 0 { return vec![]; }
+    if n == 0 {
+        return vec![];
+    }
     let mut results = Vec::new();
 
     for r in 0..n {
         let mut st = ST {
             root: r,
             parents: vec![None; n],
+            subtree_key: vec![0; n],
             children: vec![vec![]; n],
             edges: Vec::with_capacity(n - 1),
         };
@@ -76,6 +110,7 @@ pub fn gen_sts(n: usize, max_depth: usize, max_siblings: usize, max_inversions: 
         let mut visited_mask = 1u64 << r;
         let mut preorder = vec![r];
         let mut queue = vec![r]; // Nodes whose children we need to assign
+        let mut subtree_keys_in_progress = vec![0; n];
 
         gen_sts_recursive(
             n,
@@ -89,6 +124,7 @@ pub fn gen_sts(n: usize, max_depth: usize, max_siblings: usize, max_inversions: 
             &mut queue,
             0, // Start processing queue at index 0
             &mut results,
+            &mut subtree_keys_in_progress,
         );
     }
     results
@@ -107,6 +143,7 @@ pub fn gen_sts(n: usize, max_depth: usize, max_siblings: usize, max_inversions: 
 /// - `queue`: first in the queue represents the current parent node to assign children to
 /// - `queue_idx`: index of first unprocessed node in the queue
 /// - `results`: contains completed STs
+/// - `subtree_keys_in_progress`: subtree keys being built up
 fn gen_sts_recursive(
     n: usize,
     max_depth: usize,
@@ -119,6 +156,7 @@ fn gen_sts_recursive(
     queue: &mut Vec<usize>,
     queue_idx: usize,
     results: &mut Vec<ST>,
+    subtree_keys_in_progress: &mut Vec<SubtreeKey>,
 ) {
     // Prune based on the partial preorder's inversion count
 
@@ -128,14 +166,28 @@ fn gen_sts_recursive(
         return;
     }
 
-    if visited_mask.count_ones() as usize == n {
+    let num_visited = visited_mask.count_ones() as usize;
+
+    if num_visited == n {
         // All nodes visited, push the complete ST.
         let mut final_st = st.clone();
+
+        // populate adjacency list edges
         for (child, p_opt) in final_st.parents.iter().enumerate() {
             if let Some(p) = *p_opt {
                 final_st.edges.push(Edge { from: p, to: child });
             }
         }
+
+        // Set bits 42-44 (from LSB, 0-indexed) of subtree keys to record root of each subtree.
+        //
+        // Copy pre-computed subtree keys from in-progress tracking
+        for node in 0..n {
+            // we have to set subtree root here, otherwise leaf nodes will root 0.
+            final_st.subtree_key[node] =
+                subtree_keys_in_progress[node] | ((st.root as SubtreeKey) << 32);
+        }
+
         results.push(final_st);
         return;
     }
@@ -153,6 +205,7 @@ fn gen_sts_recursive(
 
     let unvisited: Vec<usize> = (0..n).filter(|&i| (visited_mask & (1 << i)) == 0).collect();
 
+    // What is the range of the number of children this parent can have?
     let possible_num_children = if parent_depth < max_depth {
         0..=std::cmp::min(max_siblings, unvisited.len())
     } else {
@@ -173,24 +226,38 @@ fn gen_sts_recursive(
             // if this cannot have children: go on to the next candidate parent node to assign
             // children to.
             gen_sts_recursive(
-                n, max_depth, max_siblings, max_inversions,
-                st, depths, visited_mask, preorder, queue, queue_idx + 1, results
+                n,
+                max_depth,
+                max_siblings,
+                max_inversions,
+                st,
+                depths,
+                visited_mask,
+                preorder,
+                queue,
+                queue_idx + 1,
+                results,
+                subtree_keys_in_progress,
             );
         } else {
             // Generate all combinations of `num_children` elements from the `unvisited` pool
             //
             // Combinations are already sorted in ascending order.
             for combination in combinations(&unvisited, num_children) {
-
                 let mut new_visited = visited_mask;
                 let mut added_nodes = Vec::new();
 
+                // add edges to all children in combination. We backtrack later.
                 for &child in &combination {
                     st.parents[child] = Some(parent);
                     st.children[parent].push(child);
                     depths[child] = parent_depth + 1;
                     new_visited |= 1 << child;
                     added_nodes.push(child);
+
+                    // Base case: initialize subtree at new child as its own root node (subtree root
+                    // data added later)
+                    subtree_keys_in_progress[child] = 1u64 << (24 + child);
                 }
 
                 let mut next_preorder = preorder.clone();
@@ -200,15 +267,44 @@ fn gen_sts_recursive(
                 next_queue.extend(&added_nodes);
 
                 gen_sts_recursive(
-                    n, max_depth, max_siblings, max_inversions,
-                    st, depths, new_visited, &mut next_preorder, &mut next_queue, queue_idx + 1, results
+                    n,
+                    max_depth,
+                    max_siblings,
+                    max_inversions,
+                    st,
+                    depths,
+                    new_visited,
+                    &mut next_preorder,
+                    &mut next_queue,
+                    queue_idx + 1,
+                    results,
+                    subtree_keys_in_progress,
                 );
+
+                // build parent's subtree key from children. After recursion, all children's subtree
+                // keys are complete, so we can aggregate into parent's key.
+
+                let mut parent_key = 1u64 << (24 + parent); // mark parent node present in subtree
+
+                for &child in &combination {
+                    // merge child's subtree
+                    parent_key |= subtree_keys_in_progress[child];
+
+                    // in the parent's subtree, it should have its children pointing to itself
+                    // (parent) in the parent table.
+                    let parent_table_idx = 3 * child;
+                    parent_key &= !(0b111u64 << parent_table_idx); // clear just in case
+                    parent_key |= (parent as u64) << parent_table_idx;
+                }
+
+                subtree_keys_in_progress[parent] = parent_key;
 
                 // backtrack
                 for &child in &combination {
                     st.parents[child] = None;
                     st.children[parent].pop();
                     depths[child] = 0;
+                    subtree_keys_in_progress[child] = 0; // reset children's key for different choice of children next round.
                 }
             }
         }
@@ -223,7 +319,13 @@ fn gen_sts_recursive(
 fn combinations(items: &[usize], k: usize) -> Vec<Vec<usize>> {
     let mut res = Vec::new();
     let mut current = Vec::new();
-    fn run(items: &[usize], k: usize, start: usize, current: &mut Vec<usize>, res: &mut Vec<Vec<usize>>) {
+    fn run(
+        items: &[usize],
+        k: usize,
+        start: usize,
+        current: &mut Vec<usize>,
+        res: &mut Vec<Vec<usize>>,
+    ) {
         if current.len() == k {
             res.push(current.clone());
             return;
@@ -242,7 +344,9 @@ fn count_inversions(arr: &[usize]) -> usize {
     let mut count = 0;
     for i in 0..arr.len() {
         for j in i + 1..arr.len() {
-            if arr[i] > arr[j] { count += 1; }
+            if arr[i] > arr[j] {
+                count += 1;
+            }
         }
     }
     count
@@ -264,7 +368,6 @@ fn make_termtree(start: usize, children: &Vec<Vec<usize>>) -> Tree<usize> {
     root
 }
 
-
 mod tests {
     use super::*;
 
@@ -279,7 +382,6 @@ mod tests {
 
     #[test]
     fn test_gen_st() {
-
         let sts = gen_sts(4, 2, 2, 3);
 
         for (idx, st) in sts.iter().enumerate() {
@@ -316,9 +418,121 @@ mod tests {
         //
         // So 3 inversions is a good cutoff for generating trees.
 
-        println!("Inversions for C4, E4, F#5, G4, B4, A5, D5: {}", count_inversions(&vec![0,1,5,2,3,6,4]));
-        println!("Inversions for C4, E4, B4, G4, D5, F#5, A5: {}", count_inversions(&vec![0,1,3,2,4,5,6]));
-        println!("Inversions for C4, E4, C#4, A4, G4, C5: {}", count_inversions(&vec![0,2,1,4,3,5]));
-        println!("Inversions for C4, G4, A4, C#4, E4, C5: {}", count_inversions(&vec![0,3,4,1,2,5]));
+        println!(
+            "Inversions for C4, E4, F#5, G4, B4, A5, D5: {}",
+            count_inversions(&vec![0, 1, 5, 2, 3, 6, 4])
+        );
+        println!(
+            "Inversions for C4, E4, B4, G4, D5, F#5, A5: {}",
+            count_inversions(&vec![0, 1, 3, 2, 4, 5, 6])
+        );
+        println!(
+            "Inversions for C4, E4, C#4, A4, G4, C5: {}",
+            count_inversions(&vec![0, 2, 1, 4, 3, 5])
+        );
+        println!(
+            "Inversions for C4, G4, A4, C#4, E4, C5: {}",
+            count_inversions(&vec![0, 3, 4, 1, 2, 5])
+        );
+    }
+
+    #[test]
+    fn test_subtree_key_uniqueness() {
+        use std::collections::{HashMap, HashSet};
+
+        // Maps SubtreeKey -> (root, nodes_mask, adjacency_list as string for debugging)
+        let mut key_to_subtree: HashMap<SubtreeKey, (usize, u8, String)> = HashMap::new();
+
+        // Maps (root, nodes_mask, adjacency_list) -> SubtreeKey
+        let mut subtree_to_key: HashMap<(usize, u8, String), SubtreeKey> = HashMap::new();
+
+        let mut collision_count = 0;
+        let mut duplicate_subtree_count = 0;
+
+        for (n, trees) in TREES.iter().enumerate() {
+            if n == 0 || n == 1 {
+                continue;
+            }
+
+            println!("Checking {} trees with {} nodes", trees.len(), n);
+
+            for tree in trees {
+                for node in 0..n {
+                    let key = tree.subtree_key[node];
+
+                    // Extract components from the key
+                    let adjacency_bits = key & 0xFFFFFF; // bits 0-23
+                    let nodes_mask = ((key >> 24) & 0xFF) as u8; // bits 24-31
+                    let root = ((key >> 32) & 0b111) as usize; // bits 32-34
+
+                    // Build adjacency list string for comparison
+                    let mut adj_list = Vec::new();
+                    for i in 0..8 {
+                        if (nodes_mask & (1 << i)) != 0 {
+                            let parent_bits = (adjacency_bits >> (3 * i)) & 0b111;
+                            adj_list.push((i, parent_bits as usize));
+                        }
+                    }
+                    adj_list.sort();
+                    let adj_str = format!("{:?}", adj_list);
+
+                    let subtree_signature = (root, nodes_mask, adj_str.clone());
+
+                    // Check if this exact subtree (same structure) was seen before
+                    if let Some(&existing_key) = subtree_to_key.get(&subtree_signature) {
+                        if existing_key != key {
+                            println!(
+                                "ERROR: Same subtree structure has different keys!\n  \
+                             Root: {}, Nodes: {:08b}, Adj: {}\n  \
+                             Key1: 0x{:016x}, Key2: 0x{:016x}",
+                                root, nodes_mask, adj_str, existing_key, key
+                            );
+                            collision_count += 1;
+                        } else {
+                            duplicate_subtree_count += 1;
+                        }
+                    } else {
+                        subtree_to_key.insert(subtree_signature.clone(), key);
+                    }
+
+                    // Check if this key was seen before with a different subtree
+                    if let Some(existing_subtree) = key_to_subtree.get(&key) {
+                        if existing_subtree != &subtree_signature {
+                            println!(
+                                "ERROR: Same key maps to different subtrees!\n  \
+                             Key: 0x{:016x}\n  \
+                             Subtree1: {:?}\n  \
+                             Subtree2: {:?}",
+                                key, existing_subtree, subtree_signature
+                            );
+                            collision_count += 1;
+                        }
+                    } else {
+                        key_to_subtree.insert(key, subtree_signature);
+                    }
+                }
+            }
+        }
+
+        println!("\nSubtree Key Statistics:");
+        println!("  Total unique keys: {}", key_to_subtree.len());
+        println!("  Total unique subtrees: {}", subtree_to_key.len());
+        println!(
+            "  Duplicate subtrees found (expected): {}",
+            duplicate_subtree_count
+        );
+        println!("  Collisions found (should be 0): {}", collision_count);
+
+        assert_eq!(
+            collision_count, 0,
+            "Found {} key collisions - same key for different subtrees or vice versa!",
+            collision_count
+        );
+
+        assert_eq!(
+            key_to_subtree.len(),
+            subtree_to_key.len(),
+            "Mismatch between unique keys and unique subtrees!"
+        );
     }
 }

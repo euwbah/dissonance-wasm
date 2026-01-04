@@ -1338,14 +1338,6 @@ The pre-order traversal is C4, E4, B4, F#5, G4, D5, A5, which has 3 inversions:
 
 Thus, I have used `max_inversions = 3` for spanning tree generation in `gen_sts()`.
 
-#### Root-down spanning tree generation
-
-Most standard algorithms for generating spanning trees start by populating edges, i.e., building from leaf-up. This simplifies the algorithm since any node only has one parent, whereas if we start at the root and choose children, we encounter duplicates caused by the same few edges being added in different orders.
-
-However, in the leaf-up approach, we cannot prematurely prune any trees that violate the pre-order inversion constraint, since we do not know the full pre-order traversal until the entire tree is constructed. The bulk of the effectiveness of the pre-order inversion constraint comes from prematurely pruning partial trees that already violate the pre-order constraint, even before these trees are completed. This can only be done if we start at the root.
-
-In order to generate spanning trees from the root downwards while avoiding duplicates, I had to use a combinatorial approach where all possible choices of children are considered for each potential parent node. Otherwise, we would run into edge-order dependent generation, or even miss out most combinations of children, ending up with an incomplete set of generated trees.
-
 #### Tree-generation pruning results
 
 Before pruning, there are a total of $N^{N-1}$ unique spanning trees (counting unique choices of root). The tabulation shows the trees before and after pruning:
@@ -1354,11 +1346,11 @@ Before pruning, there are a total of $N^{N-1}$ unique spanning trees (counting u
 |-----------------|----------------------------|---------------------------|
 | 2               | 2                          | 2                         |
 | 3               | 9                          | 9                         |
-| 4               | 64                         | 46                        |
-| 5               | 625                        | 178                       |
-| 6               | 7776                       | 597                       |
-| 7               | 117,649                    | 1,770                     |
-| 8               | 2,097,152                  | 4,813                     |
+| 4               | 64                         | 64                        |
+| 5               | 625                        | 400                       |
+| 6               | 7776                       | 1,842                     |
+| 7               | 117,649                    | 6,972                     |
+| 8               | 2,097,152                  | 23,104                    |
 
 ### Tree generation
 
@@ -1378,9 +1370,75 @@ The tree generation process takes around a few seconds and is done at loading ti
 
 Pros of pre-computing trees: faster chord evaluation time. Cons: pruning metrics that depended on algo-specific values (e.g., complexity/likelihood of subtree) cannot be used for additional computation speedup, so the algorithm had to always iterate over entire pre-computed trees to work well.
 
-> [!IMPORTANT]
->
-> **Question**: Maybe it is possible to memoize subtrees during the tree-aggregation process? Will there be a significant speed up?
+### Memoization of DFS across interpretation trees
+
+After pruning unlikely interpretation trees, there are still 23,104 trees to evaluate for 8-note chords. Each evaluation involves relatively expensive math computations (exponentials, floating point powers, multiplications) that has to be done over 7 edges per tree. This still adds up to a significant amount of complexity.
+
+I realized that many smaller subtrees were repeated across different interpretation trees. Since the subtree's complexity and likelihood only depends on its nodes, edges, and dyadic roughness/tonicity values, which are all constant throughout the evaluation over all interpretation trees, I used a `u64 SubtreeKey` that uniquely identifies the subtree at each node of an interpretation tree, such that identical subtrees present in other interpretation trees have the same `SubtreeKey`. The `SubtreeKey` is generated efficiently while `TREES` are being pre-computed at startup.
+
+Using `SubtreeKey`s, it was simple to implement memoization across computing all DFSs of all possible interpretation trees of an input chord.
+
+A benchmark was run on 201 iterations of an 8-note tonicity context update.
+
+Without memoization:
+
+```txt
+=============== SANITY METRICS ================
+
+        min - maj: 0.012025578136007686
+ min - maj scaled: 0.2677619531810946
+     tritone - p4: 0.06729656027850972
+          p4 - p5: 0.10898553770569641
+  lower intv. lim: 0.13438202707637553
+  P5 tonicity gap: 0.35736346105823596
+ targ. C conf maj: 0.4224095176070537
+ targ. C conf min: 0.4036680608162868
+ existing vs cand: 0.03450424503342786
+
+Benchmark time (201 8-note iters): 71.6581382 seconds
+```
+
+With memoization:
+
+```txt
+=============== SANITY METRICS ================
+
+        min - maj: 0.012025578136007686
+ min - maj scaled: 0.2677619531810946
+     tritone - p4: 0.06729656027850972
+          p4 - p5: 0.10898553770569641
+  lower intv. lim: 0.13438202707637553
+  P5 tonicity gap: 0.35736346105823596
+ targ. C conf maj: 0.4224095176070537
+ targ. C conf min: 0.4036680608162868
+ existing vs cand: 0.03773427643615751
+
+Benchmark time (201 8-note iters): 16.0461813 seconds
+```
+
+Note that all sanity metric scores were unaffected by the memoization, except the last metric (dissonance scoring difference between all notes played at the same time vs. one note being played later) which changed due to a different parameter being used for that particular metric only.
+
+The test `tree_gen::tests::test_subtree_key_uniqueness` ensures that all subtree keys were unique:
+
+```txt
+running 1 test
+Checking 2 trees with 2 nodes
+Checking 9 trees with 3 nodes
+Checking 64 trees with 4 nodes
+Checking 400 trees with 5 nodes
+Checking 1842 trees with 6 nodes
+Checking 6972 trees with 7 nodes
+Checking 23104 trees with 8 nodes
+
+Subtree Key Statistics:
+  Total unique keys: 5146
+  Total unique subtrees: 5146
+  Duplicate subtrees found (expected): 241829
+  Collisions found (should be 0): 0
+test tree_gen::tests::test_subtree_key_uniqueness ... ok
+```
+
+In total, only 5146 unique subtrees exist amongst all interpretation trees of up to 8 notes. This means that even though there are 23,104 interpretation trees for 8-note chords, the amount of full tree-traversal computations that have to be done is limited to at most 5146 computations, and the rest of the computations can be reused.
 
 ## Conclusion
 

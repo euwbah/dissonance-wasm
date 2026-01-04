@@ -9,7 +9,7 @@ use compute::prelude::{max, softmax};
 
 use crate::{
     dyad_lookup::{DyadLookup, RoughnessType, TonicityLookup},
-    tree_gen::{ST, TREES},
+    tree_gen::{ST, SubtreeKey, TREES},
     utils::hz_to_cents,
 };
 
@@ -681,6 +681,8 @@ pub fn graph_dissonance(
 
         let mut likelihood_exp_sum = 0.0;
 
+        let mut memoized_dfs_results: HashMap<SubtreeKey, DFSResult> = HashMap::new();
+
         for tree in st_trees.iter() {
             let (comp, like) = dfs_st_comp_likelihood(
                 &cents_asc_order,
@@ -688,6 +690,7 @@ pub fn graph_dissonance(
                 &sorted_tonicity_ctx,
                 dyad_comp,
                 dyad_tonicity,
+                &mut memoized_dfs_results,
             );
             let exp_likelihood = (like / TONICITY_CONTEXT_TEMPERATURE_TARGET).exp();
             comp_like_per_root_lo_to_hi[tree.root].push((comp, exp_likelihood));
@@ -843,6 +846,8 @@ pub fn graph_dissonance(
         let mut comp_like_per_root_lo_to_hi: Vec<Vec<(f64, f64)>> = vec![vec![]; num_notes];
         let mut likelihood_exp_sum = 0.0;
 
+        let mut memoized_dfs_results: HashMap<SubtreeKey, DFSResult> = HashMap::new();
+
         for tree in st_trees.iter() {
             let (complexity, likelihood) = dfs_st_comp_likelihood(
                 &cents_asc_order,
@@ -850,6 +855,7 @@ pub fn graph_dissonance(
                 &new_tonicity_ctx,
                 dyad_comp,
                 dyad_tonicity,
+                &mut memoized_dfs_results,
             );
 
             let exp_likelihood = (likelihood / TONICITY_CONTEXT_TEMPERATURE_TARGET).exp();
@@ -1086,6 +1092,8 @@ fn compute_child_likelihood_contribution(
 ///   returns the tonicity of the `from` node (i.e., between the two notes in the from-to dyad, how
 ///   tonic is `from`).
 ///
+/// - `memoized_dfs_results`: memoization map to speed up repeated DFS calls on identical subtrees.
+///
 /// ## Returns
 ///
 /// The (complexity, likelihood) of this interpretation tree.
@@ -1101,6 +1109,7 @@ fn dfs_st_comp_likelihood<F, G>(
     tonicity_ctx: &[f64],
     dyad_comp: F,
     dyad_tonicity: G,
+    memoized_dfs_results: &mut HashMap<SubtreeKey, DFSResult>,
 ) -> (f64, f64)
 where
     F: Fn(usize, usize) -> f64,
@@ -1133,6 +1142,11 @@ where
                     subtree_size: 1,
                     subtree_likelihood: 1.0,
                 });
+                continue;
+            }
+
+            if let Some(memoized_result) = memoized_dfs_results.get(&tree.subtree_key[node]) {
+                results[node] = Some(memoized_result.clone());
                 continue;
             }
 
@@ -1205,6 +1219,11 @@ where
                 subtree_size: 1 + child_subtree_sizes.iter().sum::<usize>(),
                 subtree_likelihood: mult_likelihoods,
             });
+
+            memoized_dfs_results.insert(
+                tree.subtree_key[node].clone(),
+                results[node].as_ref().unwrap().clone(),
+            );
         }
     }
 
