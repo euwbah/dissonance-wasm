@@ -1,18 +1,25 @@
+
 # Graph-based concordance and contextual tonicity/root-perception analysis with pitch memory for large chords
 
-_Now that's a handful._
+> [!IMPORTANT]
+>
+> This document has moved to https://pages.haxiom.io/@euwbah/graph-diss
+
+_in 5D with multiverse and timetravel_
+
+![Banner image](https://api.haxiom.io/api/v1/documents/image/0183e467-fa81-4372-b974-db252b8477f5)
 
 ## tl;dr
 
 A new algorithm for modelling the perception of complexity and tonicity of chords up to 8 notes. Tonicity is the measure of how likely the note is to be perceived as the "tonic", which may or may not correspond to the chord. This is done in real-time which, when used in conjunction with my [visualizer](https://github.com/euwbah/n-edo-lattice-visualiser), updates a model of pitch memory that tracks the listener's interpretation of up to 8 unique notes over time.
 
-This model is not biased towards any tuning system or musical culture, in the sense that there was no hard-coding of weights/penalties/points from existing musical patterns/vocabulary I am familiar with. It has zero machine-learned/statistically regressed parameters, but has results that mostly agree with my subjective perception of consonance and root perception in Western/European musical harmony.
+This model is not biased towards any tuning system or musical culture, in the sense that there was no hard-coding of weights/penalties/points from existing musical patterns/vocabulary I am familiar with. It's only inputs are frequencies and the tonicity of each note from the previous update tick. It has zero machine-learned/statistically regressed parameters, but has results that mostly agree with my subjective perception of consonance and root perception in Western/European musical harmony.
 
 The only assumption made is that the instrument has a harmonic timbre (although this setting can be changed easily by modifying [dyad_lookup.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/dyad_lookup.rs)).
 
 The model is only based on dyadic relationships between notes, but unlike most other chord complexity models with dyadic-based approaches, it:
 
-1. Captures the gestalt of the chord voicing at different hierarchies of detail, without having to precompute permutations of polyadic interval combinations
+1. Captures the gestalt of the chord voicing at different hierarchies of detail, without having to precompute the space of $N$-note chord combinations
 2. Does not have harmonic duality (major and minor triads do not have the same complexity score)
 3. Depends on the current musical context by keeping track of pitch memory over time
 
@@ -25,28 +32,30 @@ Two core concepts that make it work:
 
 So far, I haven't found a measure of harmonic complexity/concordance/consonance that agrees with my own subjective perception of chordal and melodic tension and release. I started a bit of initial research towards this goal, and I wanted to document my current progress and thought process in a relatively informal and narrative manner here.
 
-One year ago, I started work on [polyadic-old.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic-old.rs), which is an attempt to compute polyadic chord complexity and do root detection in a way that I am satisfied with. However, the computational cost of the full version of this algorithm is $N! \times (N-1)! \times M$ where $N$ is the number of notes in a chord, and $M$ is the number of candidate ratios that a new tempered note could be relative to the current harmonic context, and I relied a lot on aggressive pruning (via beam-search) to allow this algorithm to run in real-time at $O(N^3)$ as I play, but this aggressive pruning caused the results to deteriorate from the full version quite significantly.
+One year ago, I started work on [polyadic-old.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic-old.rs), which is an attempt to compute polyadic chord complexity and do root detection in a way that I am satisfied with. However, the computational cost of the full version of this algorithm is $N! times (N-1)! times M$ where $N$ is the number of notes in a chord, and $M$ is the number of candidate ratios that a new tempered note could be relative to the current harmonic context, and I relied a lot on aggressive pruning (via beam-search) to allow this algorithm to run in real-time at $O(N^3)$ as I play, but this aggressive pruning caused the results to deteriorate from the full version quite significantly.
 
 However, in the old algorithm, I found the idea of using spanning trees to represent possible interpretations of a chord promising. This article serves as a journal of my thought process for my second (or third) attempt developing this idea, where complexity is computed as the aggregate complexity over possible [**interpretation trees**](#generalizing-polyadic-complexity-using-interpretation-trees).
 
-For context, I needed some algorithm for my real-time detempering [music visualizer](https://github.com/euwbah/n-edo-lattice-visualiser) which heuristically detempers notes played in equal temperament into just intonation (JI) ratios, that is, finding the "most appropriate" JI ratio interval to represent a note that I played which could represent various possible JI ratios. This meant that on average, $N = 7$, and $M \approx 10$ so a full search would require around 30 million computations per note played.
+For context, I needed an algorithm for my real-time detempering [music visualizer](https://github.com/euwbah/n-edo-lattice-visualiser) which heuristically detempers notes played in equal temperament into just intonation (JI) ratios, that is, finding the "most appropriate" JI ratio interval to represent a note that I played which could represent various possible JI ratios. On average, $N = 7$, and $M approx 10$ so a full search would require around 30 million computations per frame.
 
-I needed a concordance metric that can, for any arbitrary EDO (equal division of the octave) tuning:
+I needed a chord evaluation algorithm that can:
 
-1. Be **ridiculously fast**. Max 16ms acceptable latency per note played, preferably under 10ms. Each update tick needs to be able to run at least 4 times per second, all while a computationally intensive visualization, OBS screen recording, video streaming, and VSTs are also running.
+1. Be **ridiculously fast**. Max 16ms acceptable latency per note played, preferably under 10ms. Each update tick needs to be able to run at least 5 times per second, all while displaying a three.js visualization, OBS screen recording, video streaming, and running VSTs.
 
 2. **Keep track** of the current **harmonic context** and consider the **element of time**. Since music is contextual, prior notes must be able to affect the current model of concordance and tonality perception, and the root detection/concordance score should evolve over time even as a single chord is held.
-   1. Ideally, rhythmic entrainment and strong/weak beat detection should be added too, but that's an equally huge problem to tackle later on.
+   - Ideally, rhythmic entrainment and strong/weak beat detection should be added too, but that's an equally huge problem to tackle later on.
 
 3. Does **not have symmetry/negative harmony/duality assumptions**. The same chord voicing spelt in upwards intervals (e.g. C E G is a major triad spelt as M3 + m3 up from C) and downwards intervals (e.g., C Ab F being - M3 - m3 down from C) should not necessarily output in the same concordance scores or detected roots.
 
-4. Perform some sort of **root detection**. Doesn't have to be perfect (which requires encoding cultural entrainment perfectly), but good enough to detect the root within $\pm 1$ fifths away from the actual root, so that my visualizer can display the correct enharmonic spellings of notes played (e.g., in 31edo, if I play a C major chord with A# approximating $7/4$, I would rather have the A# displayed as Bb< according to the conventions of HEWM, ASCII version of HEJI).
+4. Perform some sort of **root detection**. Doesn't have to be perfect (which requires encoding cultural entrainment perfectly), but good enough to detect the root within $pm 1$ fifths away from the actual root, so that my visualizer can display the correct enharmonic spellings of notes played. E.g., in 31edo, if I play a C major chord with A# approximating $7/4$, I would rather have the A# displayed as the enharmonic equivalent Bb< ([HEWM](http://www.tonalsoft.com/enc/h/hewm.aspx) notation).
 
-5. (Not yet implemented) Has proper modelling of the **physiology of hearing and psychoacoustic phenomena**, e.g., octave non-equivalence (tuning curves), combination/sum-and-difference tones, etc... So far, only a model of **lower interval limit** is implemented.
+5. Work in **any tuning system**.
 
-6. (Not yet implemented) A **model of cultural entrainment**, so that certain harmonic patterns (e.g., 2-5-1s, common licks/riffs/language/vocabulary) that are known to imply a certain tonality/root/mode will be considered by the model.
+6. (Not yet implemented) Has proper modelling of the **physiology of hearing and psychoacoustic phenomena**, e.g., octave non-equivalence (tuning curves), combination/sum-and-difference tones, etc... So far, only a model of **lower interval limit** is implemented.
 
-7. Except for rhythmic entrainment/beat detection and cultural/vocabulary entrainment models, all of the above features **should not be implemented with a black-box machine learning model**, but rather a fully explainable and interpretable algorithm that can hopefully give insight into (or at least a description of) the underlying logic (if any) of the harmony derived from the European musical tradition.
+7. (Not yet implemented) A **model of cultural entrainment**, so that certain harmonic patterns (e.g., 2-5-1s, common licks/riffs/language/vocabulary) that are known to imply a certain tonality/root/mode can be turned off/on in the model.
+
+8. Except for rhythmic entrainment/beat detection and cultural/vocabulary entrainment models, all of the above features **should not be implemented with a black-box machine learning model**, but rather a fully explainable and interpretable algorithm that can hopefully give insight into (or at least a description of) the underlying logic (if any) of the harmony derived from the European musical tradition.
 
 If you find any glaring shortcomings in the assumptions, find some part of the algorithm (or its implementation) redundant or incorrect relative to what I claimed it does, if you have a fresh perspective on this problem that can significantly speed up the algorithm, please reach out to me over Discord (@euwbah), Instagram (@euwbah), or email (euwbah [ａ𝐭] ġｍаíḷ [ɗօt] ċοm). I'd very much appreciate and enjoy any discussion on this topic!
 
@@ -62,7 +71,7 @@ Just to get this out of the way, the algorithm is tuned to my musical biases:
 
 For the context of this writing,
 
-**Consonance** is the subjective/cultural perception of pleasantness or stability in musical intervals. It can be influenced by context, culture, and individual listener preferences. Here, when I refer to "consonance" I mean my own subjective interpretation of what I think is consonant.
+**Consonance** is the subjective/cultural perception of pleasantness or stability in musical intervals. It can be influenced by context, culture, and individual listener preferences. When I refer to "consonance", I mean my own subjective interpretation of what I think is consonant, which this algorithm will try its best to model.
 
 **Concordance** refers to a numerical heuristic score of the "objective/physiological/psychoacoustical complexity" of a musical interval, i.e., we assume that every human has an innate understanding of "complex" vs "simple" harmonies, and the concordance refers to a model of whatever "simple" is. Specifically, in [Harmonic Entropy](https://en.xen.wiki/w/Harmonic_entropy), the presence of timbral fusion, virtual fundamental, beatlessness, and periodicity buzz are signifiers of psychoacoustical concordance. It is assumed that concordance is a contributing factor to consonance, but not the only one. Additionally, concordance is usually measured with the absence of context/time.
 
@@ -75,7 +84,7 @@ For the context of this writing,
 > [!NOTE]
 > So far, this algo only consider pitches that are currently played or have been played, but psychoacoustic and cultural modelling is not yet implemented.
 
-**Root**, as in the root of a chord/tonality is a reference pitch that is defined by musical culture and context. To give a more quantifiable definition, a note is more rooted/tonic if it is more likely for other notes in the context to be heard with respect to that note as a baseline. Conversely, a note is less rooted/tonic if it is more likely for it to be heard in relation to other notes as a baseline. Ideally, this should correspond to the "local key" of a song, i.e. a progression iii-vi-ii-V-I in C major would (probably) have C as the root, but in my experience, the melody and rhythmic phrasing can have a stronger influence on root perception than the harmony itself. For the purpose of this document, since I only need root perception to be accurate within $\pm 1$ fifths of the actual root (i.e., actual root is C but guessing G or F is also acceptable).
+**Root**, as in the root of a chord/tonality is a reference pitch that is defined by musical culture and context. To give a more quantifiable definition, a note is more rooted/tonic if it is more likely for other notes in the context to be heard with respect to that note as a baseline. Conversely, a note is less rooted/tonic if it is more likely for it to be heard in relation to other notes as a baseline. Ideally, this should correspond to the "local key" of a song, i.e. a progression iii-vi-ii-V-I in C major would (probably) have C as the root, but in my experience, the melody and rhythmic phrasing can have a stronger influence on root perception than the harmony itself. For the purpose of this document, since I only need root perception to be accurate within $plus.minus 1$ fifths of the actual root (i.e., actual root is C but guessing G or F is also acceptable).
 
 - E.g., suppose there are two notes, C and a major third E above it, and suppose this is the first thing you hear in a song. Will you hear C as scale degree 1 and E as the 3rd of C; or will you hear C as scale degree b6 of the tonic E? Whatever note you hear as "1" is the root (it can also be neither, but we will not consider that possibility for simplicity's sake).
 
@@ -89,10 +98,10 @@ For the context of this writing,
 
 #### [Height](https://en.xen.wiki/w/Height) or complexity functions (see also: [D&D's guide to RTT/Alternative complexities](https://en.xen.wiki/w/Dave_Keenan_%26_Douglas_Blumeyer%27s_guide_to_RTT/Alternative_complexities))
 
-A purely mathematical, usually number-theoretic (like lowest common multiple, or sum of prime factors) or norm-based/functional-analytic measure of complexity of a JI ratio $\frac{n}{d} \in \mathbb{Q}$.
+A purely mathematical, usually number-theoretic (like lowest common multiple, or sum of prime factors) or norm-based/functional-analytic measure of complexity of a JI ratio $n/d in QQ$.
 When I first encountered the concept of a height function, some limitations immediately stood out:
 
-- No standard generalization to tempered non-JI intervals in $\mathbb{R}$. It is possible to use smoothing techniques (e.g., compute up to a certain limit and then interpolate using splines/linear methods), which I have used to some extent in my own implementation. [Harmonic entropy](https://en.xen.wiki/w/Harmonic_entropy) (see below) solves the issue using a spreading function.
+- No standard generalization to tempered non-JI intervals in $RR$. It is possible to use smoothing techniques (e.g., compute up to a certain limit and then interpolate using splines/linear methods), which I have used to some extent in my own implementation. [Harmonic entropy](https://en.xen.wiki/w/Harmonic_entropy) (see below) solves the issue using a spreading function.
 
 - Any (commutative) generalization to chords of more than 2 notes results in negative intervals having the same complexity score as their positive counterparts. E.g., a 4:5:6 major triad and a 10:12:15 minor triad will score the same if we consider simple generalizations like taking the LCM of the 3 integers in the ratio, or just summing up the norms for each of the 3 intervals between the 3 notes. This doesn't reflect my (possibly subjective) experience of 4:5:6 sounding more simple than 10:12:15 (see [A note on complexity and duality/negative harmony](#a-note-on-complexity-and-dualitynegative-harmony))
 
@@ -123,15 +132,15 @@ This addressed several limitations of the above methods:
 
 2. By considering three-note combinations (3HE) instead of dyads, which is done by populating the search space with 2-dimensional points representing the 2 intervals between the 3 notes (as opposed to searching through points on the real line up to some Weil/Tenney height or Farey sequence iteration), this model is able to break the negative-harmony "curse" of using purely dyadic heights. The major `4:5:6` and corresponding "negative", minor `10:12:15`, have vastly different entropy/concordance scores.
 
-I initially implemented a generalized $n$-HE algorithm in Ruby for livecoding in Sonic Pi, but found that any $N > 4$ quickly becomes intractable for real-time purposes. Every configuration of $N - 1$ intervals need to be considered. If I wanted 3-cent resolution (with intermediate values interpolated) for intervals up to a 1 octave span, that still quickly blows up to 25600000000 pre-computed points for only 5-note chords. There were some heuristic optimizations (e.g., lazily populating lattice points in direction of most entropy, assuming the inverse Fourier transform of the Riemann-zeta analytic continuation of HE was smooth/analytic for arbitrary dimensions), which I tried doing in Ruby, then Java, then Rust (though I lost the most of the projects in a corrupted old SSD, sad...). I did to get it working up to 7-HE, but the optimizations deteriorated the results until they were no longer useful and each operation still took 1s, which was unacceptable for my use case.
+I initially implemented a generalized $n$-HE algorithm in Ruby for livecoding in Sonic Pi, but found that any $N > 4$ quickly becomes intractable for real-time purposes. Every configuration of $N - 1$ intervals need to be considered. If I wanted 3-cent resolution (with intermediate values interpolated) for intervals up to a 1 octave span, that still quickly blows up to 25600000000 pre-computed points for only 5-note chords. There were some heuristic optimizations (e.g., lazily populating lattice points in direction of most entropy, assuming the inverse Fourier transform of the Riemann-zeta analytic continuation of HE was smooth/analytic for arbitrary dimensions), which I tried doing in Ruby, then Java, then Rust (though I lost the most of the projects in a corrupted old SSD, sad...). I did to get it working up to 7-HE, but the optimizations deteriorated the results until they were no longer useful.
 
 Things I really liked about HE:
 
-- The probabilistic treatment felt correct for modelling the uncertainty of human perception of pitch. And this idea of extending to intervals in $\mathbb{R}$ via probabilistic interpretations/kernel smoothing functions was something I wanted to take further.
+- The probabilistic treatment for modelling the uncertainty of human perception of pitch. This idea of extending to intervals in $RR$ via probabilistic interpretations/kernel smoothing functions was something I wanted to take further.
 
 - It generalized to multiple intervals naturally, considering not just dyadic relationships but the entire gestalt of the chord by mapping chords to points in a higher-dimensional space.
 
-What I didn't like was how quickly computations blew up when $N$ increases, and I was desperately looking for alternatives that preserved these two properties I needed in a complexity function, while not requiring a populating stage and a gargantuan search space (even after applying threshold cutoffs/interpolations) for 7/8-note chords.
+What I didn't like was how quickly computations blew up when $N$ increases, and I was desperately looking for alternatives that preserved these two properties I needed in a complexity function, while not requiring populating a huge search space (even after applying threshold cutoffs/interpolations) for 7/8-note chords.
 
 #### Statistical/machine learning methods
 
@@ -146,17 +155,17 @@ Some general ideas:
 
 It is possible for the negative variant of a chord to have the exact same set of intervals in the same order, take for example, in 12edo, C E G B (Cmaj7), whose negative is C Ab F Db (which then is Dbmaj7). If we ignore the absolute frequency and things like the lower interval limit, then these two chords are indistinguishable up to transposition by a major 7th (or minor 2nd). Also in JI, the negative of 8:10:12:15 is itself (up to transposition). In this case, it would make sense for any complexity algorithm that is invariant over transpositions to assign the same complexity score to both chords.
 
-However, for non-mirror symmetric chords, this property does not hold, e.g. the negative of 4:5:6:7 is 60:70:84:105, which I think should deserve a much higher complexity score:
+However, for non-mirror symmetric chords, this property does not hold, e.g. the negative of 4:5:6:7 is 60:70:84:105, which I think should deserve a much higher **complexity** score. To demonstrate what I mean by "complexity", consider:
 
 <iframe width="560" height="180" src="https://luphoria.com/xenpaper/#embed:(1)%0A4%2F4_4%3A5_4%3A5%3A6_4%3A5%3A6%3A7--.%0A60%2F60_60%3A70_60%3A70%3A84_60%3A70%3A84%3A105--" title="Xenpaper" frameborder="0"></iframe>
 
-Even though all 6 pairwise dyads are the same intervals, there are other psychoacoustic features like timbral fusion/combination tones/virtual fundamental that are much weaker in the latter than in the former.
+Even though all 6 pairwise dyads are the same intervals, there are other psychoacoustic features like timbral fusion/combination tones/virtual fundamental that are much weaker in the latter than in the former, which contributes to the second "negative" chord being more complex.
 
-Put another way, if all four notes were played together:
+Put another way, if all four notes were played together (in the context of a song with other instruments playing),
 
 <iframe width="560" height="180" src="https://luphoria.com/xenpaper/#embed:(1)%0A4%3A5%3A6%3A7--.%0A60%3A70%3A84%3A105--" title="Xenpaper" frameborder="0"></iframe>
 
-and as a result, in the context of a song with many other instruments/parts happening at once, I feel that for a seasoned ear-trained transcriber, it would be:
+...a chord would be more complex if, for an ear-trained musician/transcriber, it would be:
 
 1. Harder to find all 4 notes in `4:5:6:7` than in `60:70:84:105`, i.e., some inner voice may be missed out when attempting to transcribe. (Play the following examples with other songs playing in the background to simulate the experiment).
 
@@ -180,13 +189,9 @@ The first version of the algorithm described is implemented in [polyadic-v1.rs](
 
 I noticed that complexity scoring metrics either zoom in to the microscopic perspective of the complexity of each dyad and interactions between their partials (e.g., Sethares' dissmeasure, height functions) or zoom out to the macroscopic perspective to compute the score of the entire chord as a whole (e.g., HE or machine learning models).
 
-The dyad-based methods are computationally efficient for 7-note chords, but miss out on the ability to model how a human perceives the whole chord at once and falls behind when it comes to issues like equating the complexity scores of harmonic duals.
-
-The polyadic/gestalt methods are computationally expensive/intractable for 7-note chords, but they can model some of the gestalt and intuitive human perception of the chord.
-
 It didn't make sense to have two fundamentally different models to describe the perception of one thing, and I want to explore the idea of the polyadic complexity/tonicity perception being an **emergent property** of the microscopic interactions between each pair of notes.
 
-How can we emulate the perception of the whole chord by only evaluating 2-note pairs each time?
+How can we evaluate the perception of the whole chord by only evaluating dyads (2-note chords) each time?
 
 ### Goal 2: No AI/ML (besides regressing simple statistical models)
 
@@ -194,47 +199,43 @@ There are models out there large enough to make sense of music. However, the two
 
 1. **No explainability**. There are models that are a working black-box that spits out sensible harmony, but the point of this exercise/experiment is to find whether there are any principles that influence complexity and root perception that can be made objective enough for a computer to evaluate. Of course, not everything can be explained through computation alone, but I am interested to find out the exact extent of what can and cannot be done. Hence, ML won't work for this purpose.
 
-2. **Not enough training data**. The goal of this algorithm is to be able to analyze the complexity and tonicities of any arbitrary tunings. The inputs to the algorithm are raw Hz values, and the point is for any arbitrary frequencies from whatever tuning to be supported. The issue with most models that train on MIDI/FFT melspectrograms is the 12-centric quantization of pitch, which makes it impossible to generalize to arbitrary tunings in a way that is true to the "hidden human model" of pitch and complexity perception. Ideally, the algorithm should see 12edo as a special case of the underlying logic, and any other tuning system should have exactly the same underlying logic applied.
+2. **Not enough training data**. The goal of this algorithm is to be able to analyze the complexity and tonicities of any arbitrary tunings. The inputs to the algorithm are raw Hz values, and the point is for any arbitrary frequencies from whatever tuning to be supported. The issue with most models that train on MIDI/FFT melspectrograms is the 12-centric quantization of pitch, which makes it impossible to generalize to arbitrary tunings in a way that is true to the "hidden underlying human model" of pitch and complexity perception. Ideally, the algorithm should see 12edo as a special case of the underlying logic, and any other tuning system should have exactly the same underlying logic applied.
 
 ### Base case: Dyadic complexity
 
-In this case, we only have two notes, and there are already many existing methods that give me a satisfactory complexity score for dyads. I will fall back to some variant of Sethares' dissmeasure that considers the first 19 harmonics. Depending on the specific part of the algorithm, I use a version that is better suited for compounding additively or multiplicatively, or normalized (with polynomial regression) so that all octaves (besides unison) have the same dyadic complexity score. All variants look more or less the same:
+Suppose we only have two notes. There are already many existing methods that give a satisfactory complexity score for dyads. I will fall back to some variant of Sethares' dissmeasure that considers the first 31 harmonics. Depending on the specific part of the algorithm, I use a version that is better suited for compounding additively or multiplicatively, or normalized (with polynomial regression) so that all octaves (besides unison) have the same dyadic complexity score. All variants look more or less the same:
 
-![Roughness plot](roughness_scaled_add_vs_cents_v1.png)
+![Roughness plot](https://api.haxiom.io/api/v1/documents/image/0a7ba4e7-617b-4cd1-b35c-c16a12d2fca9)
 
 For the code that generated this plot, see the implementation of `DyadLookup` in [dyad_lookup.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/dyad_lookup.rs). The same results are stored in [sethares_roughness_31_5_0.95.csv](https://github.com/euwbah/dissonance-wasm/blob/master/sethares_roughness_31_5_0.95.csv).
 
-Next, for the rest of this algorithm, we will need a measure of "tonicity", i.e. how likely a note will be perceived as the root/tonic of the chord/section/melodic fragment. Ideally, this number is supplied by an all-knowing oracle that always gives the correct answer.
-
-Later I implemented a tonicity score that changes over time and depends on context, but first we need an initial tonicity model.
+### Base case: Dyadic tonicity
 
 The initial tonicity heuristic can be thought of as an attempt to answer this question: Assume nothing has been played yet (no harmonic context) and the listener has no prior expectations. If both notes are played simultaneously for long enough for the listener to initially form an opinion, but short enough so that the initial opinion is not changed, which note will the listener hear as the root/tonic?
-
-### Base case: Dyadic tonicity
 
 For root perception, otonality first comes to mind. First a **vague** definition: we consider an interval to be **otonal** (as in overtones) if the top note can be seen as part of the harmonic series built from the bottom note. For various possible reasons, the top note in an otonal dyad is, more often than average, perceived relative to the bottom note. In a context-free vacuum, the bottom note of an otonal dyad is more "rooted", the same way a dyad is utonal (as in undertones) if the top note is more "rooted". (E.g., sing Do-Mi, and sing Mi-Do (or Le-Do) in a different key. Repeat a few times in random keys. Which note feels more like the root?)
 
 > E.g., in a perfect fifth, C-G, we think of C as the root and G as the fifth. If we invert the interval across the octave so that G is now below C, then the perfect fourth G-C is utonal, and we still may think of C as the root and G as a fourth below the root (or historically, the C is a dissonant suspension that should resolve to B and/or D, then G is the root).
 
-> Notice the **issue of duality** when it comes to root detection, a V-I progression in C major can also be a I-IV progression in G major. This can be solved by applying a cultural model (e.g., require two unique clausulae, use scale/mode/melody, etc...), but for this algorithm, as long as it answered within $\pm 1$ fifth of the "culturally correct" answer, I would consider it a success.
+> Notice the **issue of duality** when it comes to root detection, a V-I progression in C major can also be a I-IV progression in G major. This can be solved by applying a cultural model (e.g., require two unique clausulae, use scale/mode/melody, etc...), but for this algorithm, as long as it answered within $plus.minus 1$ fifth of the "culturally correct" answer, I would consider it a success.
 
 Now I say that the above definition of otonality is vague because I notice that otonality can be defined at multiple levels, sorted in decreasing strictness:
 
-1. Strictly part of the harmonic series: only $1:k$ dyads are otonal for $k \in \mathbb{N}$, i.e., `3/1` is otonal but `3/2` is not.
+1. Strictly part of the harmonic series: only $1:k$ dyads are otonal for $k in NN$, i.e., `3/1` is otonal but `3/2` is not.
 2. Part of the harmonic series up to octave displacements while preserving the direction of the interval: any $2^n : k$ dyad is otonal as long as $2^n \le k$. E.g., `27/16` is otonal but `5/3` is not. `5/4` is otonal but `4/5` is not (direction flipped).
-3. Any dyad whose higher note is higher up the harmonic series than the lower note, up to octave displacement, is otonal: any $2^n \cdot a : 2^m \cdot b$ for any $n, m \in \mathbb{N}$ where $a \le b$ and $2^n \cdot a \le 2^m \cdot b$ is otonal, and $n, m$ are such that $a, b$ are not even. E.g., `7/5` is otonal but `10/7` is not.
+3. Any dyad whose higher note is higher up the harmonic series than the lower note, up to octave displacement, is otonal: any $2^n dot.c a : 2^m dot.c b$ for any $n, m in NN$ where $a <= b$ and $2^n dot.c a <= 2^m dot.c b$ is otonal, and $n, m$ are such that $a, b$ are not even. E.g., `7/5` is otonal but `10/7` is not.
 4. Any dyad which is _close enough_ to any interval that is otonal/utonal by the above definition is otonal/utonal respectively. E.g., we can consider `14/11`, and also 400 cents, otonal because it is close to `5/4` and `81/64`. The closer the interval is to other simple JI otonal/utonal intervals, and the simpler (lower height) of those JI intervals, the stronger the pull towards that classification.
 
 These levels of definitions create a continuum of otonality/utonality. @hyperbolekillsme on the [Xenharmonic Alliance Discord](https://discord.gg/QaQQpw7fN5) generated a plot using [this python script](https://discord.com/channels/332357996569034752/947247604100649000/1395090206247358474) which evaluates the otonality of intervals (otonality in blue line):
 
-![Otonality plot by @hyperbolekillsm](otonality_plot.png)
+![Otonality plot by @hyperbolekillsme](https://api.haxiom.io/api/v1/documents/image/c8f9b2b9-1aba-4b6d-8197-8dc75cdfd595)
 
-This was done by computing the otonality component for the numerator and denominator of each JI $\frac{n}{d}$ up to a fixed height using the multiplicative Euler method: e.g., $\mathrm{comp}(n) = \prod_i (p_i - 0.5)$, where $n = \prod_i p_i$ and $p_i$ are primes. Then, raw otonality for a JI interval $\frac{n}{d}$ is computed as
+This was done by computing the otonality component for the numerator and denominator of each JI $n/d$ up to a fixed height using the multiplicative Euler method: e.g., $"comp"(n) = product_i (p_i - 0.5)$, where $n = product_i p_i$ and $p_i$ are primes. Then, raw otonality for a JI interval $n/d$ is computed as
 $$
-\mathtt{otonality}(n, d) = \log_2 \mathrm{comp} (n) - \log_2 \mathrm{comp} (d).
+"otonality"(n, d) = log_2 "comp" (n) - log_2 "comp" (d).
 $$
 
-For any interval (not necessarily JI), its otonality is computed by finding a set $\mathcal{J}$ of JI approximations via `find_top_approximations`, then those approximations are scored/weighted by `score = complexity_score * accuracy_score`. The otonality is the weighted average `otonality(a, b) * score`.
+For any interval (not necessarily JI), its otonality is computed by finding a set $cal(J)$ of JI approximations via `find_top_approximations`, then those approximations are scored/weighted by `score = complexity_score * accuracy_score`. The otonality is the weighted average `otonality(a, b) * score`.
 
 This otonality scoring metric is consistent with definition 4. of otonality above.
 
@@ -244,7 +245,7 @@ However, there are two things that prevented me from taking this approach:
 
 1. The otonality curve itself didn't agree with my intuition for rootedness. For instance, I would think that in a vacuum, a `3/2` perfect fifth C-G, or even more so, a stack of perfect fifths C-G-D-A, would imply more tonicity for C than a single `5/4` major third. This does not work with the otonality curve which ranks `5/4` and `7/4` much more otonal than `3/2`.
 
-2. I don't think that otonality can substitute for tonicity/root perception.
+2. I don't think that otonality can substitute for tonicity/root perception &mdash; e.g., the minor tonality is built of the minor third, but 6:5 is a utonal interval (unless we are considering the minor third 7:6 or 19:16)
 
 Rather than otonality, I thought about what other properties I could exploit to highlight the asymmetry between "root" and "non-root" notes. Specifically, I was drawn to the asymmetry of the roughness curve itself.
 
@@ -257,13 +258,13 @@ Then, P5 = `3/2` and its dual -P5 = P4 - 1 octave = `2/3` must be equivalent. An
 
 However, the roughness of `3/2` and `4/3` are not equal. This is the asymmetry that I want to exploit.
 
-From my subjective musical culture, `3/2` reinforces the lower note as root and `4/3` reinforces the higher note as root. Since `3/2` has lower roughness than `4/3`, I hypothesize that if an (octave-shifted) inverted interval has higher roughness than the original interval, then the original interval reinforces the lower note as root more strongly than the higher note, and vice versa.
+From the bias of my musical cultural entrainment, `3/2` reinforces the lower note as root and `4/3` reinforces the higher note as root. Since `3/2` has lower roughness than `4/3`, I hypothesize that if an (octave-shifted) inverted interval has higher roughness than the original interval, then the original interval reinforces the lower note as root more strongly than the higher note, and vice versa.
 
-An intuitive explanation: If an interval has lower roughness than its octave-inverted counterpart, then the lower note of the original interval "wants" to be the lower note. Conversely, the inverted configuration having a higher roughness than the original interval could indicate that the inverted configuration is less stable.
+Intuitively: If an interval has lower roughness than its octave-inverted counterpart, then the lower note of the original interval "wants" to be the lower note. Conversely, the inverted configuration having a higher roughness than the original interval could indicate that the inverted configuration is less stable.
 
 Using this idea, I generated a plot for the initial heuristic tonicity score of a dyad in vacuum:
 
-![Tonicity plot](tonicity_vs_cents_v1.png)
+![Tonicity plot version 1](https://api.haxiom.io/api/v1/documents/image/6486dbf0-bc2c-4a94-be5c-159b81b46238)
 
 The code that generated this plot can be found in the implementation of `TonicityLookup` in [dyad_lookup.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/dyad_lookup.rs), and the results are stored in [dyad_tonicity_19_5_0.95.csv](https://github.com/euwbah/dissonance-wasm/blob/master/dyad_tonicity_19_5_0.95.csv).
 
@@ -271,35 +272,35 @@ The higher the tonicity, the more likely the lower note is to be heard as root/t
 
 The blue line is the raw dyad tonicity, computed as
 $$
-\mathtt{raw\_tonicity} = \frac{\mathtt{rough}(\hat{I}^{-1})}{\mathtt{rough}(I) + \mathtt{rough}(\hat{I}^{-1})}
+"raw_tonicity" = "rough"(hat(I)^(-1))/("rough"(I) + "rough"(hat(I)^(-1)))
 $$
-where `rough` is the normalized dyadic roughness (the green line in [Base case: Dyadic complexity](#base-case-dyadic-complexity)), $I$ is the interval in cents, and $\hat{I}^{-1} = -I + 1200 \cdot (2 \lfloor \frac{I}{1200} \rfloor - 1)$ is its inverted counterpart, placed within the same octave as $I$.
+where `rough` is the normalized dyadic roughness (the green line in [Base case: Dyadic complexity](#base-case-dyadic-complexity)), $I$ is the interval in cents, and $hat(I)^(-1) = -I + 1200 dot.c (2 floor(I/1200) - 1)$ is its inverted counterpart, placed within the same octave as $I$.
 
 The orange line is the normalized tonicity. Because Sethares' roughness intrinsically decreases as two intervals get further and further apart, there is a drifting bias such that larger intervals always have lower roughness and thus higher tonicity than smaller intervals. To correct for this, each octave is fitted to a degree 5 polynomial and that is subtracted from the raw tonicity to obtain a flatter version, then the result is normalized with mean 0.5 and variance 0.0001. The choice of variance here is arbitrary, but I just needed to make the tonicity scores fit within 0.4-0.6 for numerical stability in the later time/context-sensitive parts of this algorithm.
 
-Finally, the green line (smoothed tonicity) is obtained by applying Gaussian kernel smoothing with 21 bins ($\pm 10$ cents) at $\sigma = 5$ cents, since humans don't perceive pitch with infinite precision, a lot of the sub-cent jitters are not very meaningful. This smoothed tonicity is the one used in the rest of the algorithm.
+Finally, the green line (smoothed tonicity) is obtained by applying Gaussian kernel smoothing with 21 bins ($plus.minus 10$ cents) at $sigma = 5$ cents, since humans don't perceive pitch with infinite precision, a lot of the sub-cent jitters are not very meaningful. This smoothed tonicity is used in the rest of the algorithm and referred to as **dyadic tonicity**.
 
-Generally, I am quite happy with the smoothed tonicity (green), except for the fact that `5/3` scores higher tonicity than `5/4` (to my cultural bias, `5/3` in a vacuum should imply a third note `4/3` as tonic instead). At this point in time, I didn't think it would be an issue, so I just moved on.
+Generally, I am quite satisfied with the smoothed tonicity (green), except for the fact that `5/3` scores higher tonicity than `5/4` (to my cultural bias, `5/3` in a vacuum should imply a third note `4/3` as tonic instead). At this point in time, I didn't think it would be an issue, so I just moved on.
 
 ### First step: Major vs minor triads
 
 Now that I had a way of initially guessing which note is more likely the root in a dyad, I can move on to triads.
 
-The main challenge & improvement from existing dyad-only methods was to ensure that the 5-limit JI major triad `4:5:6`; and the minor triad `10:12:15` do not have the same complexity score. The minor triad should be more complex.
+The main challenge of dyadic methods is to ensure that the 5-limit JI major triad `4:5:6`; and the minor triad `10:12:15` do not have the same complexity score. The minor triad should be more complex.
 
 My thought process:
 
 - In a vacuum, when I hear both `4:5:6` and `10:12:15`, I would instinctively hear the lowest note as the root, the top note as a fifth coloring above the root, and the middle note as the note that helps identify the quality of a chord.
-- I would judge the notes in the triad relative to the most rooted note, followed by the fifth, then last (or almost never) the middle note. E.g., if I hear C-E-G in a vacuum, I wouldn't instinctively think of judging C as the b6 of E unless forced to by some other context.
+- I would judge the notes in the triad relative to the most rooted note, followed by the fifth, then lastly the middle note. E.g., if I hear C-E-G in a vacuum, I wouldn't instinctively think of judging C as the b6 of E unless forced to by some other context.
 - Therefore, there must be a way to ascertain how "tonic" each note in the triad is, then use that to weight the importance of each dyad's complexity score.
 
-Suppose we don't weight by "tonicity", and let $a, b, c$ be the complexity scores of the dyads C-G, C-E, and E-G respectively, where $a < b < c$.
+First, suppose we don't weight by tonicity, and let $a, b, c$ be the complexity scores of the dyads C-G, C-E, and E-G respectively, where $a < b < c$.
 
 Also (assuming complexity is invariant to transposition), $a, b, c$ will be the complexity of C-G, Eb-G, and C-Eb in the minor triad.
 
 If we only sum up the dyadic complexities, both C-E-G and C-Eb-G will have the same total complexity of $a + b + c$.
 
-However, now suppose we have tonicity scores for each note. Let $t_C, t_E, t_G$ be tonicity scores for the major triad and let $s_C, s_{E\flat}, s_G$ be tonicity scores for the minor triad.
+However, now suppose we have tonicity scores for each note. Let $t_C, t_E, t_G$ be tonicity scores for the major triad and let $s_C, s_(E flat), s_G$ be tonicity scores for the minor triad.
 
 If we have a function $f(k, t_X, t_Y)$ that takes in dyadic complexity $k$ and tonicity scores of notes $X$ and $Y$ and spits out a weighted complexity score, then the total complexity score for the major triad can be
 $$
@@ -307,18 +308,18 @@ $$
 $$
 and that of the minor triad is
 $$
-    f(a, s_C, s_G) + f(c, s_C, s_{E\flat}) + f(b, s_{E\flat}, s_G)
+    f(a, s_C, s_G) + f(c, s_C, s_(E flat)) + f(b, s_(E flat), s_G)
 $$
-Thus, if $(s_C, s_{E\flat}) \ne (t_E, t_G)$ and $(s_{E\flat}, s_{G}) \ne (t_C, t_E)$, then the complexity of the major triad can be different from that of the minor triad.
+Thus, if $(s_C, s_(E flat)) != (t_E, t_G)$ and $(s_(E flat), s_G) != (t_C, t_E)$, then the complexity of the major triad can be different from that of the minor triad.
 
 Some choices of $f$:
 
-- $f(k, t_X, t_Y) = k \cdot (t_X + t_Y)$
-- $f(k, t_X, t_Y) = k \cdot t_X \cdot t_Y$
+- $f(k, t_X, t_Y) = k dot.c (t_X + t_Y)$
+- $f(k, t_X, t_Y) = k dot.c t_X dot.c t_Y$
 
 Let's work out some numbers to see if this works.
 
-For now, we assume a very simple heuristic to get the tonicity of the notes in the triad:
+For exaple, we can try this simple heuristic to get the tonicity of the notes in the triad:
 
 1. For each dyad, add the `dyadic_tonicity` to the lower note's raw tonicity score, and add `1 - dyadic_tonicity` to the higher note's raw tonicity score.
 2. Take the average tonicity score for each note by dividing by the number of dyads it is part of (i.e., divide by $N - 1$ where $N$ is the number of notes in the chord).
@@ -337,17 +338,17 @@ Raw tonicity scores (Major):
 - C: $(0.5043 + 0.55) / 2 = 0.52715$
 - E: $(0.4983 + (1 - 0.5043)) / 2 = 0.497$
 - G: $((1 - 0.55) + (1 - 0.4983)) / 2 = 0.47585$
-- $\sum_N e^{t_N} = 4.94726135$
+- $sum_N e^(t_N) = 4.94726135$
 
 Raw tonicity scores (Minor):
 
 - C: $(0.4983 + 0.55) / 2 = 0.52415$
 - Eb: $((1 - 0.4983) + 0.5043) / 2 = 0.503$
 - G: $((1 - 0.5043) + (1 - 0.55)) / 2 = 0.47285$
-- $\sum_N e^{s_N} = 4.94725811$
+- $sum_N e^(s_N) = 4.94725811$
 
 Softmax tonicity scores (Major):
-- C: $e^{0.52715} / 4.94726135 = 0.3424$
+- C: $e^0.52715 slash 4.94726135 = 0.3424$
 - E: 0.3323
 - G: 0.3253
 
@@ -356,25 +357,21 @@ Softmax tonicity scores (Minor):
 - Eb: 0.3343
 - G: 0.3243
 
-Using $f(k, t_X, t_Y) = k \cdot (t_X + t_Y)$, we have:
+Using $f(k, t_X, t_Y) = k dot (t_X + t_Y)$, we have:
 
 $$
-\begin{aligned}
-\text{comp}(C,E,G) &= 1.512 \cdot (0.3424 + 0.3253) + 1.759 \cdot (0.3424 + 0.3323) + 1.764 \cdot (0.3323 + 0.3253) \\
-&= 3.3563661 \\
-\text{comp}(C,E\flat,G) &= 1.512 \cdot (0.3414 + 0.3243) + 1.764 \cdot (0.3414 + 0.3343) + 1.759 \cdot (0.3343 + 0.3243) \\
+"comp"(C,E,G) &= 1.512 dot (0.3424 + 0.3253) + 1.759 dot (0.3424 + 0.3323) + 1.764 dot (0.3323 + 0.3253) \
+&= 3.3563661 \
+"comp"(C,E flat,G) &= 1.512 dot (0.3414 + 0.3243) + 1.764 dot (0.3414 + 0.3343) + 1.759 dot (0.3343 + 0.3243) \
 &= 3.3569506
-\end{aligned}
 $$
 
-Or using $f(k, t_X, t_Y) = k \cdot t_X \cdot t_Y$:
+Or using $f(k, t_X, t_Y) = k dot t_X dot t_Y$:
 $$
-\begin{aligned}
-\text{comp}(C,E,G) &= 1.512 \cdot (0.3424 \cdot 0.3253) + 1.759 \cdot (0.3424 \cdot 0.3323) + 1.764 \cdot (0.3323 \cdot 0.3253) \\
-&= 0.55923229148 \\
-\text{comp}(C,E\flat,G) &= 1.512 \cdot (0.3414 \cdot 0.3243) + 1.764 \cdot (0.3414 \cdot 0.3343) + 1.759 \cdot (0.3343 \cdot 0.3243) \\
+"comp"(C,E,G) &= 1.512 dot (0.3424 dot 0.3253) + 1.759 dot (0.3424 dot 0.3323) + 1.764 dot (0.3323 dot 0.3253) \
+&= 0.55923229148 \
+"comp"(C,E flat,G) &= 1.512 dot (0.3414 dot 0.3243) + 1.764 dot (0.3414 dot 0.3343) + 1.759 dot (0.3343 dot 0.3243) \
 &= 0.55942730643
-\end{aligned}
 $$
 
 Note that the minor triad is only very slightly more complex than the major triad. The major-minor complexity gap can be widened further by decreasing the softmax temperature to give more opinionated tonicity scores, or by tweaking $f$.
@@ -389,36 +386,37 @@ However, in my experiments, this completely misses the gestalt of the chord. E.g
 
 <iframe width="560" height="175" src="https://luphoria.com/xenpaper/#embed:(1)%7Br261.3hz%7D%0A%5B0_10_'4_'9_''1%5D---%0A%5B0_10%5D--%5B'4_'9_''1%5D--" title="Xenpaper" frameborder="0"></iframe>
 
-![C13b9](C13b9.drawio.png)
+![C13b9](https://api.haxiom.io/api/v1/documents/image/60a280d4-36b4-4d4f-8f64-087738894f26)
 
-The **interpretation tree** above implies that we hear A and C# with respect to E as a "subroot", and we hear Bb and E with respect to C as the root. Of course, this is not the only way to interpret this voicing, so the actual algorithm should find a way to aggregate over different interpretations.
+The **interpretation tree** above implies that we hear A and C# with respect to E as a "subroot", and we hear Bb and E with respect to C as the root. Of course, this is not the only way to interpret this voicing, so the algorithm should also aggregate over different interpretations later.
 
-To evaluate complexity based on this particular interpretation tree (where root and subtrees are fixed):
+To evaluate complexity based on this particular interpretation tree:
 
 1. Compute the initial tonicities of the notes in this set-up, we use the heuristic initial tonicity computation in the [first step](#first-step-major-vs-minor-triads). Though in practice, notes are only added one at a time, so we can assume that the contextual tonicities is already given except when adding new notes.
 2. Perform a DFS (depth-first search) starting from the root node (C3):
    1. Compute the local relative tonicity amongst all children. I.e., assuming the current tonicity scores of the entire chord from context, we take the distribution conditioning on the parent node being the root. See below for various methods for obtaining local tonicity scores.
    2. For each child of the parent:
       1. Compute the complexity of child subtree recursively. If the child is a leaf node, it has complexity 0. This value should be contained in $[0,1]$.
-      2. Obtain the edge complexity in $[0,1]$, which is obtained from a lookup table from the pre-computed dyadic complexities between the parent and the child. This complexity should model perceived roughness, thus the same interval at different octaves should generally have lower complexity the further apart they are. However, the raw additive Sethares' roughness (blue line labelled "scaled add" in the [graph](roughness_scaled_add_vs_cents_v1.png)) is normalized to have a peak roughness that halves every octave. Instead, I want to aim for peak roughness to be $0.86^n$ at the $n$-th octave, so we simply multiply the raw additive roughness by $\left(\frac{0.86}{0.5}\right)^n$ for $n = 2^{\text{cents} / 1200}$ octaves.
+      2. Obtain the edge complexity in $[0,1]$, which is obtained from a lookup table from the pre-computed dyadic complexities between the parent and the child. This complexity should model perceived roughness, thus the same interval at different octaves should generally have lower complexity the further apart they are. However, the raw additive Sethares' roughness is normalized to have a peak roughness that halves every octave. Instead, I want to aim for peak roughness to be $0.86^n$ at the $n$-th octave, so we simply multiply the raw additive roughness by $(0.86/0.5)^n$ for $n = 2^("cents" slash 1200)$ octaves.
       3. The child's complexity (in the range 0-1) is computed as:
           $$
-            \text{comp} (a, s) = \frac{a+s}{2} \cdot \left(1 + \frac{1}{2}(a-s)\right)
+            "comp" (a, s) = (a+s)/2 dot (1 + 1/2 (a-s))
           $$
 
-         where $a \in [0,1]$ is the dyadic complexity between parent and child and $s \in [0,1]$ is the subtree complexity of the child subtree.
+         where $a in [0,1]$ is the dyadic complexity between parent and child and $s in [0,1]$ is the subtree complexity of the child subtree.
 
          [Link to desmos](https://www.desmos.com/calculator/pqopcbjxkl)
 
          This formula was chosen so that:
-            - $\text{comp} (0.5, 0.5) = 0.5$: neutral complexity of both edge and subtree should return neutral 0.5.
-            - $\mathbb{E} [\text{comp} (A,S)] = 0.5$: average complexity 0.5 should be preserved in recursive steps.
-            - If $0 < a < s < 1$, $\text{comp} (a, s) < \text{comp} (s, a)$: edge complexity should have more effect than subtree complexity on overall complexity. This ensures more intuitive root choices will score lower complexity. If this inequality was flipped, optimizing for low-complexity roots will optimize for interpretation trees where the root is the largest "dissonance contributor" &mdash; in the sense that if the root is removed, the remaining notes (which are siblings/descendants of the children) will be the most consonant.
-            - $\text{comp}(0,0) = 0$ and $\text{comp}(1,1) = 1$: bounding min/max cases should give min/max values
-            - $\text{comp}(a, s) \in [0,1]$ is bounded with the same bounds as inputs.
+            - $"comp" (0.5, 0.5) = 0.5$: neutral complexity of both edge and subtree should return neutral 0.5.
+            - $EE ["comp" (A,S)] = 0.5$: average complexity 0.5 should be preserved in recursive steps.
+            - If $0 < a < s < 1$, $"comp" (a, s) < "comp" (s, a)$: edge complexity should have more effect than subtree complexity on overall complexity. This ensures more intuitive root choices will score lower complexity. If this inequality was flipped, optimizing for low-complexity roots will optimize for interpretation trees where the root is the largest "dissonance contributor" &mdash; in the sense that if the root is removed, the remaining notes (which are siblings/descendants of the children) will be the most consonant.
+            - $"comp"(0,0) = 0$ and $"comp"(1,1) = 1$: bounding min/max cases should give min/max values
+            - $"comp"(a, s) in [0,1]$ is bounded with the same bounds as inputs.
 
-         > [!QUESTION]
-         > Question: is there a better way to combine edge complexity and subtree complexity, in a way that is explainable by human perception, rather than just using intuitive mathematical properties?
+         > [!IMPORTANT] Question
+         >
+         > Is there a better way to combine edge complexity and subtree complexity, in a way that is explainable by human perception, rather than just using intuitive mathematical properties?
          >
          > This is not the final edge complexity vs. subtree complexity balancing method, a modification will be made later.
    3. Then, the total complexity of the parent's subtree is computed as the weighted sum of all its children's complexities, weighted by local tonicity of each child.
@@ -437,15 +435,15 @@ I have considered different options for evaluating the local tonicity distributi
 
 3. Compute local tonicity of each child using the reciprocal of the child's subtree complexity. The intuition here is that if a subtree is a concordant/stable upper structure, it is more likely to be heard as a reference point over other substructures.
     - Problem 1: If the child is a leaf node, there is no complexity scoring for just a single note. When comparing the tonicities of child leaf nodes to each other, we can use the global tonicity context and normalize their per-note global tonicities to get a local tonicity distribution. However, how do we compare a leaf node to a non-leaf node, such as in the C13b9 example where Bb is a child leaf node of C but E-A-C# is a child subtree of C?
-        - Solution: mix both local tonicity from global context and reciprocal subtree complexity. For a non-leaf note node $N$, let $t_N$ be its global tonicity and $K$ be the subtree complexity, then we can define the mixed tonicity as $m_N := t_N + \rho \cdot (1 / \text{K} - 1 / \hat{K})$ where $\rho$ is a parameter controlling how much bonus we give to low-complexity subtrees, and $\hat{K}$ is the expected subtree complexity score of all subtrees with the same number of notes of the subtree at $N$.
-        - This solution introduces more parameters and the computation of $\hat{K}$ for each subtree size is memoizable but not trivial, so I have not experimented with subtracting $1/\hat{K}$ yet.
+        - Solution: mix both local tonicity from global context and reciprocal subtree complexity. For a non-leaf note node $N$, let $t_N$ be its global tonicity and $K$ be the subtree complexity, then we can define the mixed tonicity as $m_N := t_N + rho dot (1 / K - 1 / hat(K))$ where $rho$ is a parameter controlling how much bonus we give to low-complexity subtrees, and $hat(K)$ is the expected subtree complexity score of all subtrees with the same number of notes of the subtree at $N$.
+        - This solution introduces more parameters and the computation of $hat(K)$ for each subtree size is memoizable but not trivial, so I have not experimented with subtracting $1 slash hat(K)$ yet.
     - Problem 2: The subtree complexity is computed as the sum of child subtree complexities weighted by the child subtree's tonicity. However, now the child subtree's tonicity is simply the reciprocal of its complexity, so now multiplying the local tonicity and complexity simply cancels out to a constant!
        - Solution: from the distribution created from the mixed tonicities $m_N$ as a solution to Problem 1 above, we combine the reciprocal subtree complexity with an edge-specific weight in a non-linear way (e.g., multiplying the dyadic complexity and the reciprocal subtree complexity).
 
 > [!NOTE]
 > In my initial attempt ([polyadic-old.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic-old.rs)), I have gone with method 3, however, this raised the computational complexity so high that the algorithm can no longer run at real time unless aggressive beam pruning was done, but that severely impacted accuracy.
 >
-> In my current attempt, I aim to use method 2, but even then the computational complexity is very high, and some heuristics must be done to prune the search space of possible trees.
+> In this article, I aim to use method 2, but the computational complexity is still relatively high, so some optimizations were done to prune the search space of possible trees.
 
 This completes the first part &mdash; now we can evaluate the complexity given a single subjective interpretation of how a polyadic chord voicing is broken down.
 
@@ -455,10 +453,11 @@ The next challenge: How to aggregate over different interpretations of the same 
 
 1. Going back to the C13b9 voicing example, note that there are many other ways of interpreting this particular voicing, and not necessarily with C as the root. Though, certain ways of interpreting will feel more intuitive than others. How do we model this?
    - E.g., we could also interpret the voicing as an Bbdim (Bb Db E) over an Am dyad (A C), but this does not feel intuitive to me.
-     ![Weird C13b9 interpretation](C13b9-weird.drawio.png)
+     ![Weird C13b9 voicing](https://api.haxiom.io/api/v1/documents/image/7c9f87d1-3ef3-41be-be7c-7f65eae8cf29)
 
-   > [!NOTE]
-   > At this current stage of devising this algo, I assumed that scoring the intuitiveness of the tree interpretation was not necessary since the complexity scores aggregated from each root of the interpretation tree are fed back in to the algorithm to update the tonicity scores, which I assumed meant that tonicities should converge to a value that depends on the intuitiveness of the trees formed with that root.
+
+   > [!TIP] In hindsight
+   > At this current stage, I assumed that explicitly scoring the likelihoods of the tree interpretation was not necessary since the complexity scores aggregated from each root of the interpretation tree are fed back in to the algorithm to update the tonicity scores, which I assumed meant that tonicities should converge to a value that depends on the likelihoods of the trees with that root.
    >
    > In the [next step](#the-big-problem-duality-is-still-hiding), I will show why this is not sufficient.
 
@@ -487,7 +486,8 @@ For step 2, we have to devise a measure of likelihood. For now, we focus on the 
 
 Working through an example for triads, we have to think about 3 tree configurations and 3 different roots each:
 
-![Nine triad configurations](nine-triads.drawio.png)
+![Nine triad configurations](https://api.haxiom.io/api/v1/documents/image/70fa1df2-6575-491f-8a87-9d5bc355ad4c)
+
 
 Using the interpretation tree complexity evaluation from [Generalizing: Polyadic tonicity with substructures](#generalizing-polyadic-tonicity-with-substructures), we can compute the complexity score for each of the 9 configurations above. An example of how this can be done using depth-first search (DFS) in the triadic case is provided in [triad_sts_computation_example.py](triad_sts_computation_example.py). Running `test_one_iteration()` gives the result:
 
@@ -565,45 +565,45 @@ The results of this test hints that the per-root aggregated polyadic complexity 
 
 Four different aggregation methods were tested: Where $k_i$ is the complexity score for the $i$-th interpretation tree of the same root,
 
-1. Arithmetic mean: $\frac{1}{N} \sum_{i=1}^N k_i$
+1. Arithmetic mean: $1/N sum_(i=1)^N k_i$
    - Complexities are weighted equally.
-2. Harmonic mean: $N / \sum_{i=1}^N (1 / k_i)$
+2. Harmonic mean: $N / (sum_(i=1)^N 1 / k_i)$
    - Complexities with smaller values are weighted more heavily.
-3. Inverse exponential weighted mean: $\sum_{i=1}^N k_i e^{- k_i} / \sum_{i=1}^N e^{- k_i}$
+3. Inverse exponential weighted mean: $(sum_(i=1)^N k_i e^(- k_i)) / (sum_(i=1)^N e^(- k_i))$
    - Complexities with smaller values are weighted more heavily, but less aggressively than harmonic mean.
-4. Exponential weighted mean: $\sum_{i=1}^N k_i e^{k_i} / \sum_{i=1}^N e^{k_i}$
+4. Exponential weighted mean: $(sum_(i=1)^N k_i e^(k_i)) / (sum_(i=1)^N e^(k_i))$
    - Complexities with smaller values are weighted less heavily.
 
 Initially, I was inclined to use either the harmonic or inverse exp weighted mean, because intuitively I thought that if a particular root interpretation allows for a few interpretation trees to have significantly lower complexity than the rest, then the listener should update their subjective model of tonicity to favor hearing the current music with respect to whichever root that allows for an interpretation that obtains the least complexity.
 
-However, in terms of raw numbers, I wanted to widen the gap between the probability of C being the root and the probability of G being the root. Hence, I am currently considering using the exponentially weighted mean to aggregate per-root complexities. Musically speaking, this means that if any root choice allows for the listener to construct a high-complexity interpretation, that high-complexity interpretation would affect the overall complexity score of that root choice more significantly than a low-complexity interpretation would, e.g., multiple low-complexity interpretations are needed to "balance out" a single high-complexity interpretation.
+However, in terms of raw numbers, I wanted to widen the gap between the probability of C being the root and the probability of G being the root. Hence, I at this point I considered using the exponentially weighted mean to aggregate per-root complexities. Musically speaking, this means that if any root choice allows for the listener to construct a high-complexity interpretation, that high-complexity interpretation would affect the overall complexity score of that root choice more significantly than a low-complexity interpretation would, e.g., multiple low-complexity interpretations are needed to "balance out" a single high-complexity interpretation.
 
-> [!NOTE]
+> [!TIP] In hindsight
 >
-> This aggregation method is not final &mdash; this will be improved in the next sections.
+> This aggregation method is flawed &mdash; this will be improved in the next sections.
 
 Now that the per-root aggregated complexities are computed, we can update the global tonicity scores as follows:
 
-1. Compute target tonicities as the softmax of negative per-root complexities (adding 1 for numerical stability). Where $t_i$ is the target tonicity of the $i$-th note, $c_i$ is the aggregated complexity scores of interpretation trees with note $i$ as the root, and $\tau \approx 0.5$ is the softmax temperature (which is lowered from the baseline of 1 to make the tonicity distribution more opinionated):
+1. Compute target tonicities as the softmax of negative per-root complexities (adding 1 for numerical stability). Where $t_i$ is the target tonicity of the $i$-th note, $c_i$ is the aggregated complexity scores of interpretation trees with note $i$ as the root, and $tau approx 0.5$ is the softmax temperature (which is lowered from the baseline of 1 to make the tonicity distribution more opinionated):
    $$
-     t_i = \frac{\exp((1 - c_i) / \tau)}{\sum_{j} \exp((1 - c_j) / \tau)}
+     t_i = (exp((1 - c_i) / tau)) / (sum_j exp((1 - c_j) / tau))
    $$
 
-2. Perform smooth update of global tonicity context towards the target tonicities. $\hat{t}_i$ is the current global tonicity of note $i$, and $\alpha$ is the smoothing factor (higher = slower update), we compute the next iteration's global tonicity $\hat{t}'_i$ using
+2. Perform smooth update of global tonicity context towards the target tonicities. $hat(t)_i$ is the current global tonicity of note $i$, and $alpha$ is the smoothing factor (higher = slower update), we compute the next iteration's global tonicity $hat(t)'_i$ using
    $$
-    t'_i = \alpha \hat{t}_i + (1 - \alpha) t_i
+    t'_i = alpha hat(t)_i + (1 - alpha) t_i
    $$
    then we normalize with
    $$
-    \hat{t}'_i = \frac{t'_i}{\sum_j t'_j}
+    hat(t)'_i = (t'_i)/(sum_j t'_j)
    $$
-   such that $\sum_i \hat{t}'_i = 1$ is a tonicity distribution.
+   such that $sum_i hat(t)'_i = 1$ is a tonicity distribution.
 
 The updated tonicity scores are now fed back to the complexity computation for the next tick.
 
 This process continues indefinitely until the music stops.
 
-An example of this computation is provided in [triad_sts_computation_example.py](triad_sts_computation_example.py) in the function `test_tonicity_update()`. Running it to update the tonicities of a simple C-E-G triad with parameters `iterations=30, smoothing=0.7, temperature=0.5` and assuming an initial uniform tonicity of $\hat{t}_i = 1/3$ gives the result:
+An example of this computation is provided in [triad_sts_computation_example.py](triad_sts_computation_example.py) in the function `test_tonicity_update()`. Running it to update the tonicities of a simple C-E-G triad with parameters `iterations=30, smoothing=0.7, temperature=0.5` and assuming an initial uniform tonicity of $hat(t)_i = 1/3$ gives the result:
 
 ```txt
 Iteration 1      target: ['0.34986', '0.30181', '0.34833'] ctx: ['0.33829', '0.32388', '0.33783']
@@ -644,17 +644,17 @@ And we can see that the tonicity scores being fed back to the complexity algorit
 - E: 0.30119
 - G: 0.34866
 
-The variance/opinionatedness/confidence of tonicity scores can be increased by decreasing the `temperature` parameter further, and the rate of convergence can be adjusted by changing the `smoothing` parameter. Ideally, we want to run this at 60 fps, and in practice, the smoothing parameter is also scaled by delta time between each frame to ensure a more or less constant rate of update.
+The variance/opinionatedness/confidence of tonicity scores can be increased by decreasing the `temperature` parameter further, and the rate of convergence can be adjusted by changing the `smoothing` parameter. Ideally, we want to run this at 60 fps &mdash; in practice, the smoothing parameter is scaled by delta time of each frame to ensure a constant rate of update.
 
 ### "Final" tonicity calculation
 
 Now it is possible to evaluate the complexity of each interpretation tree, and update tonicities of each note based on the per-root aggregated complexity scores. The final dissonance score of the entire voicing is computed as:
 
 $$
-\text{Diss} = \sum_i \hat{c}_i \cdot t_i
+"Diss" = sum_i hat(c)_i dot t_i
 $$
 
-where $\hat{c}_i$ is the aggregated complexity score (as per the above section) of all interpretation trees rooted at note $i$, and $t_i$ is the tonicity of note $i$ from the existing tonicity context.
+where $hat(c)_i$ is the aggregated complexity score (as per the above section) of all interpretation trees rooted at note $i$, and $t_i$ is the tonicity of note $i$ from the existing tonicity context.
 
 After the harmonic analysis algorithm is finalized, the plan is to add rhythmic beat entrainment and harmonic rhythm entrainment to the model, such that the tonicity model becomes more sensitive (lower `smoothing` and lower `temperature`) when it is near a strong downbeat or an expected harmonic/chord change based on the rhythmic entrainment model.
 
@@ -671,7 +671,7 @@ However, after fully implementing the above algorithm in Rust, certain tests rev
 >
 > - `Voicing` are cents values of notes. The order of the notes in this voicing determines the order of the tonicity values. 0 cents = A4 = 440hz as an arbitrary reference point (lower interval limit is accounted for), but for simplicity in the section below, **I will refer to 0 cents as C instead of A**.
 >
-> - `Diss` is the final dissonance score calculated as $\sum_i \hat{c}_i \cdot t_i$ where $\hat{c}_i$ is the aggregated complexity score of all interpretation trees rooted at note $i$, and $t_i$ is the tonicity of note $i$ from the existing tonicity context, which is the tonicities computed from the dyadic tonicity heuristic model.
+> - `Diss` is the final dissonance score calculated as $sum_i hat(c)_i dot t_i$ where $hat(c)_i$ is the aggregated complexity score of all interpretation trees rooted at note $i$, and $t_i$ is the tonicity of note $i$ from the existing tonicity context, which is the tonicities computed from the dyadic tonicity heuristic model.
 >
 > - `tonicity_target` is the target tonicities computed from the aggregated complexity scores per root.
 >
@@ -749,7 +749,7 @@ This edge dyadic complexity is fully symmetric/dual, so both choices of root not
 
 Initially, I thought that the easy fix was to implement a special case for dyads, after all there was the dyadic tonicity model that I was already happy with in [Base case: dyadic complexity](#base-case-dyadic-tonicity).
 
-However, the following polyadic test cases revealed deeper issues:
+However, the following triadic test cases revealed deeper issues:
 
 ```txt
 ============  Graph diss: C maj  =====================
@@ -858,7 +858,7 @@ Three glaring problems:
       Notice how the algorithm is not modelling the fact that C->G is a much more sane interpretation than G->C for a basic 1-3-5 triad.
 
     - The single-child depth-2 paths `C->G->E` and `G->C->E` both score lower in complexity than the intuitive `C->(E, G)` interpretation because:
-      1. The current function that aggregates a note's subtree complexity with its dyadic edge complexity between its parent and the note itself (see step 2c of [tree complexity computation](#generalizing-polyadic-complexity-using-interpretation-trees)) penalizes edge complexity more than subtree complexity, i.e., if $0 < a < s < 1$, $\text{comp} (a, s) < \text{comp} (s, a)$: edge complexity should have more effect than subtree complexity on overall complexity
+      1. The current function that aggregates a note's subtree complexity with its dyadic edge complexity between its parent and the note itself (see step 2c of [tree complexity computation](#generalizing-polyadic-complexity-using-interpretation-trees)) penalizes edge complexity more than subtree complexity, i.e., if $0 < a < s < 1$, then $"comp"(a, s) < "comp"(s, a)$: edge complexity should have more effect than subtree complexity on overall complexity
       2. There is no penalty for deep/nested interpretations, when intuitively, deeply nested interpretations (note A is seen with respect to note B seen with respect to note C, etc...) are generally more complex than flat interpretations (notes A, B, C are seen with respect to some root directly), unless there is a good reason to use a nested interpretation (e.g., the A maj triad upper structure in the C13b9 voicing discussed earlier).
 
 3. The dissonance score of the major and minor triads are still nearly identical! One of the core criteria of this algorithm is to break the curse of harmonic duality in dyadic-based models, but this issue is still here.
@@ -899,14 +899,15 @@ This one just says that the most probable root in a Cmaj7 voiced as a plain old 
 
 The solution to these issues becomes clear when we map out exactly which variables are allowed to affect which other variables. The flowchart below shows the flow of information in the above flawed model:
 
-![Flawed model information flow](flawed-model-info-flow.drawio.png)
+![Flawed model information flow](https://api.haxiom.io/api/v1/documents/image/7bae0dbb-2597-4e85-a6b0-2c2e1e9146ce)
+
 
 The main issue is that the **dyadic tonicity is not part of the recursion**, it is only used to initialize the model. Recall that the tonicity score between two notes is the only source of asymmetry/non-duality in this model &mdash; this asymmetry was the entire motivation for introducing the concept of tonicity in [Base case: Dyadic tonicity](#base-case-dyadic-tonicity).
 
 Since dyadic tonicity is not part of the recursion and every other part of this model is symmetric (as in, harmonic duality of major/minor), over time the model will always converge to a dualistic model.
 
 
-> **Exit plan**
+> [!WARNING] Exit plan
 >
 > One possible solution is to not use a tree structure/recursion at all, and just directly combine dyadic tonicities with dyadic complexity scores.
 >
@@ -916,7 +917,7 @@ To solve this, we have to find a way to **incorporate dyadic/edge tonicities in 
 
 My first instinct is to look at the weak spots of this model to find where dyadic tonicities can be added:
 
-1. The $\text{comp}(a, s)$ function for combining edge and subtree complexities.
+1. The $"comp"(a, s)$ function for combining edge and subtree complexities.
 
    - This function was heuristically made to combine the edge and subtree complexity scores, but the arbitrary precedence of edge complexity over subtree complexity just to get better triadic tonicity results was suspicious.
 
@@ -925,13 +926,13 @@ My first instinct is to look at the weak spots of this model to find where dyadi
    - The analogue of subtree tonicity is the subtree complexity. Notice that subtree complexity is directly affected by three information sources at each subtree: edge complexity, subtree complexities of its children, and local tonicity scores obtained from subtree tonicity.
    - Compare that to the active information sources that affect subtree tonicity: subtree tonicities of its children and global tonicity context. There is a very indirect recursion from the aggregation of tree complexities that affects the global tonicity context which in turn affects the subtree tonicities, but this only happens once every update step, rather than at every node traversal.
 
-3. The meaning of "tonicity" is not consistently interpreted. For individual notes, tonicity is the probability of that note being interpreted as the root, but subtree tonicity is defined as the sum of global tonicities, but it doesn't make sense for an entire subtree to "be a root". When interpreted mathematically, the sum of global tonicities of notes in a subtree is equal to the probability of the root being contained in that subtree. The current flawed algorithm uses "the probability of the root being contained in a subtree" $\hat{t}_i$ to weight the complexity contribution of that subtree $\text{comp} (a_i, s_i)$.
+3. The meaning of "tonicity" is not consistently interpreted. For individual notes, tonicity is the probability of that note being interpreted as the root, but subtree tonicity is defined as the sum of global tonicities, but it doesn't make sense for an entire subtree to "be a root". When interpreted mathematically, the sum of global tonicities of notes in a subtree is equal to the probability of the root being contained in that subtree. The current flawed algorithm uses "the probability of the root being contained in a subtree" $hat(t)_i$ to weight the complexity contribution of that subtree $"comp"(a_i, s_i)$.
 
 ### Decoupling likelihood, tonicity, and complexity
 
 To glean some remedies from the first weak spot, recall that the rationale for weighting edge complexity more than subtree complexity was to discourage preferring interpretation trees whose roots are "dissonant offenders", i.e., notes that have high dyadic complexity with respect to many other notes in the voicing. E.g., consider the C-E-G triad interpreted two ways:
 
-![C->(E, G) vs E->(G->C)](ceg-vs-egc.drawio.png)
+![CEG vs EGC](https://api.haxiom.io/api/v1/documents/image/7d6382ab-69f8-45c8-bff8-7116cea4cc8d)
 
 The first interpretation (left) will have the same complexity score whether we penalize edges or subtrees more, since both E and G are leaf nodes.
 
@@ -987,7 +988,7 @@ Listing ideal behaviours of each component in the new model:
    3. The subtree tonicity (the total probability of the subtree containing the root, which for now we conflate with the "strength" or "tonal gravity" of the subtree)
    4. The number of nodes in the subtree (to fairly compare between subtrees of different sizes and leaf children)
    5. We **do not** include the likelihood of the subtree (to discount the complexity contribution of unlikely subtrees), as that information is already propagated down to the root which weights the final dissonance contribution of the full tree.
-   6. Unlike in the flawed model, the $\text{comp}(a_i, s_i)$ function which weights edge complexity over subtree complexity is now parametrized to allow control over whether and how much edge complexity should affect overall subtree complexity compared to subtree complexity. Ideally, edge complexity should still have more effect than subtree complexity, since edges close to the root of the interpretation tree are the first to be perceived (the model assumes that the pre-order traversal of the interpretation tree represents the order of note perception).
+   6. Unlike in the flawed model, the $"comp"(a_i, s_i)$ function which weights edge complexity over subtree complexity is now parametrized to allow control over whether and how much edge complexity should affect overall subtree complexity compared to subtree complexity. Ideally, edge complexity should still have more effect than subtree complexity, since edges close to the root of the interpretation tree are the first to be perceived (the model assumes that the pre-order traversal of the interpretation tree represents the order of note perception).
 6. To obtain the likelihood contribution from each child node, we consider a function of:
    1. The likelihood of the subtree at that child (from 1. and 6.)
    2. The dyadic tonicity alignment of the edge connecting the parent to the child (from 3.)
@@ -1001,9 +1002,9 @@ The third weak spot is also resolved since tonicity is now consistently defined 
 
 In the first version, I used the dyadic roughness/complexity scoring system as per [Base case: Dyadic complexity](#base-case-dyadic-complexity):
 
-![Dyadic roughness graph version 1](roughness_scaled_add_vs_cents_v1.png)
+![Dyadic roughness graph version 1](https://api.haxiom.io/api/v1/documents/image/1f4afd15-e68f-41eb-bce2-ebc6a399a195)
 
-One of the key goals was to ensure major and minor triads did not have the same dissonance score, which is a common problem amongst dyad-based complexity/dissonance models. I've ascertained that minor and major triads are treated differently by this v2 model, but the gap between minor and major triad complexity in various inversions/voicings was abysmally small ($\approxeq 0.01$), relative to the gap between the perfect fifth and fourth dyads. Initially I thought that there was an issue with the polyadic algorithm itself, but I later realized that the bottleneck was not the polyadic algorithm but the original dyadic base case we started with.
+One of the key goals was to ensure major and minor triads did not have the same dissonance score, which is a common problem amongst dyad-based complexity/dissonance models. I've ascertained that minor and major triads are treated differently by this v2 model, but the gap between minor and major triad complexity in various inversions/voicings was abysmally small ($approx.eq 0.01$), relative to the gap between the perfect fifth and fourth dyads. Initially I thought that there was an issue with the polyadic algorithm itself, but I later realized that the bottleneck was not the polyadic algorithm but the original dyadic base case we started with.
 
 The first issue I realized was that, since I was performing most of the tests in 12edo, a lot of the dyadic roughness and tonicity values were not as distinct as I wanted, as the 12edo intervals stray far from the regions of consonance in the roughness curve in the image above, especially for the 5-limit major/minor thirds.
 
@@ -1012,15 +1013,15 @@ The second issue was that the smoothing model that I used (computing Sethares' r
 1. It did not model how human interval perception has larger tolerances for simpler intervals
 2. The uniform average of each 1-cent bucket did not do sufficient smoothing and the roughness curve had very tight tolerances for what it considered "close" to a consonant JI interval.
 
-To solve these issues, I took a $\pm 20$-cent sliding window weighted average of the half-cent resolution roughness curves (which were uniformly averaged from the 1/20th-cent resolution roughness curves). Each 1/2 cent in the sliding window was weighted by a Gaussian kernel with $\sigma = 15$, multiplied by $\exp(-\text{roughness} \cdot 4)$ to increase the weight of lower-roughness intervals.
+To solve these issues, I took a $plus.minus 20$-cent sliding window weighted average of the half-cent resolution roughness curves (which were uniformly averaged from the 1/20th-cent resolution roughness curves). Each 1/2 cent in the sliding window was weighted by a Gaussian kernel with $sigma = 15$, multiplied by $exp(-"roughness" dot 4)$ to increase the weight of lower-roughness intervals.
 
 I also increased the smoothing on the dyadic tonicity curve so that dyadic tonicities more closely resemble human perception for tolerance of detunings around consonant JI intervals.
 
 The resulting dyadic roughness and tonicity curves are as follows:
 
-![Dyadic roughness graph version 2](roughness_scaled_add_vs_cents.png)
+![Dyadic roughness graph version 2](https://api.haxiom.io/api/v1/documents/image/c39d5ff0-0271-4284-a50f-a446d4b867cf)
 
-![Dyadic tonicity graph version 2](tonicity_vs_cents.png)
+![Dyadic tonicity graph version 2](https://api.haxiom.io/api/v1/documents/image/eb3916ba-404e-47ed-81f7-1b7cbe59ba11)
 
 The final dyadic roughness calculation for intervals uses the blue line (scaled add) in Roughness vs Cents, while reducing the per-octave dropoff to 0.86 per octave instead of 0.5 as pictured in the graph (as in, every octave the roughness halves). Additionally, lower interval limit was emulated on a per-dyad basis in `lower_interval_limit_penalty()` in [polyadic.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic.rs).
 
@@ -1031,7 +1032,8 @@ The full 9 octaves of values can be found in [sethares_roughness_31_5_0.95.csv](
 
 ### Information flow of revised model
 
-![Improved model information flow](improved-model-info-flow.drawio.png)
+![Improved model info flow](https://api.haxiom.io/api/v1/documents/image/6d04edcd-9f79-4946-97c7-e36ec58257db)
+
 
 ### Computing values in revised model
 
@@ -1039,70 +1041,69 @@ The adjustable parameters below can be found and modified near the top of [polya
 
 #### Computing tree/subtree complexity
 
-**Tree/subtree complexity** of the subtree at node $j$ is implemented in `compute_child_subtree_complexity_contribution()` and `compute_child_leaf_complexity_contribution()`. It is recursively computed in terms of the $i$-th child's subtree weight $\hat{t}_i$,dyadic complexity between its child and itself $a_i$, and child's subtree complexity $s_i$ using:
+**Tree/subtree complexity** of the subtree at node $j$ is implemented in `compute_child_subtree_complexity_contribution()` and `compute_child_leaf_complexity_contribution()`. It is recursively computed in terms of the $i$-th child's subtree weight $hat(t)_i$,dyadic complexity between its child and itself $a_i$, and child's subtree complexity $s_i$ using:
 
 $$
-c_j = \begin{cases}
-    \sum_{i \in \text{children}(j)} \hat{t}_i \cdot \text{comp}_k (a_i, s_i), & \text{if } i \text{ has children} \\
-    \sum_{i \in \text{children}(j)} \hat{t}_i \cdot a_i, & \text{if } i \text{ is a leaf}
-\end{cases}
+c_j = cases(
+    sum_(i in "children"(j)} hat(t)_i dot "comp"_k (a_i, s_i)\, & "if" i "has children",
+    sum_{i in "children"(j)} hat(t)_i dot a_i\, & "if" i "is a leaf"
+)
 $$
 
-The function $\text{comp}_k (a_i, s_i)$ is updated from the prior model to include a parameter $k =$ `EDGE_OVER_SUBTREE_COMPLEXITY_BIAS` $\in [-1, 1]$ which controls how much more edge complexity should affect overall subtree complexity compared to subtree complexity. A value of $k=1$ means edge complexity has more precedence, i.e., `comp(1, 0) = 0.75` but `comp(0, 1) = 0.25`, and $k=-1$ means subtree complexity has more precedence. Since we model interpretation trees as the structure of how the listener perceives the chord from the root to leaves (in pre-order traversal where each node's children are sorted in ascending pitch order), edges closer to the root should have more effect on overall complexity, so `EDGE_OVER_SUBTREE_COMPLEXITY_BIAS` is initially set to 0.65:
+The function $"comp"_k (a_i, s_i)$ is updated from the prior model to include a parameter $k =$ `EDGE_OVER_SUBTREE_COMPLEXITY_BIAS` $in [-1, 1]$ which controls how much more edge complexity should affect overall subtree complexity compared to subtree complexity. A value of $k=1$ means edge complexity has more precedence, i.e., `comp(1, 0) = 0.75` but `comp(0, 1) = 0.25`, and $k=-1$ means subtree complexity has more precedence. Since we model interpretation trees as the structure of how the listener perceives the chord from the root to leaves (in pre-order traversal where each node's children are sorted in ascending pitch order), edges closer to the root should have more effect on overall complexity, so `EDGE_OVER_SUBTREE_COMPLEXITY_BIAS` is initially set to 0.65:
 
 $$
-\text{comp}_k (a, s) = \frac{a + s}{2} \cdot \left(1 + \frac{k}{2} (a - s)\right).
+"comp"_k (a, s) = (a + s)/2 dot (1 + k/2 (a - s)).
 $$
 
-This [desmos graph](https://www.desmos.com/calculator/jho2nihmwl) visualizes how $\text{comp}_k (a, s)$ behaves for different values of $k$.
+This [desmos graph](https://www.desmos.com/calculator/jho2nihmwl) visualizes how $"comp"_k (a, s)$ behaves for different values of $k$.
 
 At each subtree, the complexity is a value between $[0, 1]$ which represents the minimum and maximum possible complexity attainable. The distribution of complexity scores for all $N$-note chords is currently unknown and needs more testing.
 
 #### Computing subtree weight
 
-**Subtree weight** of the $i$-th child of $j$ is computed in `compute_subtree_weights()` as such: For each child node, the child's subtree tonicity (sum of its nodes' tonicities) is computed. Each child has a local tonicity weight according to its subtree tonicity which is given by the softmax over all children's subtree tonicities, with temperature (inverse opinionatedness) parameter initially set to `LOCAL_TONICITY_TEMP = 0.7`. Let $t'_i$ denote the softmax local tonicities of the $i$-th child, such that $\sum_i t'_i = 1$.
+**Subtree weight** of the $i$-th child of $j$ is computed in `compute_subtree_weights()` as such: For each child node, the child's subtree tonicity (sum of its nodes' tonicities) is computed. Each child has a local tonicity weight according to its subtree tonicity which is given by the softmax over all children's subtree tonicities, with temperature (inverse opinionatedness) parameter initially set to `LOCAL_TONICITY_TEMP = 0.7`. Let $t'_i$ denote the softmax local tonicities of the $i$-th child, such that $sum_i t'_i = 1$.
 
 The subtree weight now balances the softmax local tonicities $t'_i$ with the proportion of nodes in the subtree $n_i$ at the $i$-th child, so that large subtrees with the same subtree tonicity as small subtrees will still have higher weight. The importance of local tonicity vs. subtree size is controlled by `TONICITY_BIAS` initially set to 0.6:
 
 $$
-\hat{t}_i = \texttt{TONICITY\_BIAS} \cdot t'_i + (1 - \texttt{TONICITY\_BIAS}) \cdot \frac{n_i}{\sum_{k \in \text{children}(j)} n_k}.
+hat(t)_i = #raw("TONICITY_BIAS") dot t'_i + (1 - #raw("TONICITY_BIAS")) dot n_i/(sum_(k in "children"(j)) n_k).
 $$
 
-where $\sum_k n_k$ is the number of nodes amongst all child subtrees of $j$.
+where $sum_k n_k$ is the number of nodes amongst all child subtrees of $j$.
 
 #### Computing tree/subtree likelihood
 
-**Tree/subtree likelihood** of the subtree at node $j$ is computed in `compute_child_likelihood_contribution()`. It is done recursively in terms of subtree likelihoods of its children $\lambda_i$ inversely weighted by child subtree complexity $c_i$, dyadic tonicity alignment of the edge from $j$ to each child $i$, and global tonicities of node $j$ and each child $i$, and is computed by the geometric mean of the likelihood contributions over each child node/subtree:
+**Tree/subtree likelihood** of the subtree at node $j$ is computed in `compute_child_likelihood_contribution()`. It is done recursively in terms of subtree likelihoods of its children $lambda_i$ inversely weighted by child subtree complexity $c_i$, dyadic tonicity alignment of the edge from $j$ to each child $i$, and global tonicities of node $j$ and each child $i$, and is computed by the geometric mean of the likelihood contributions over each child node/subtree:
 
 $$
-\lambda_j = \left(\prod_{i \in \text{children}(j)} \kappa(\lambda_i, c_i) \cdot \text{dyad-align} (j \to i) \cdot \text{global-align} (j \to i) \right)^{1 / \left| \text{children}(j) \right|}.
+lambda_j = (product_(i in "children"(j)) kappa(lambda_i, c_i) dot "dyad-align"(j -> i) dot "global-align"(j -> i))^(1 slash abs("children"(j))).
 $$
 
-This likelihood is a multiplicative score in $(0, \infty)$ where 1.0 is neutral (neither increasing nor decreasing likelihood).
+This likelihood is a multiplicative score in $(0, oo)$ where 1.0 is neutral (neither increasing nor decreasing likelihood).
 
-The first component $\kappa (\lambda_i, c_i)$ captures the likelihood of the child subtree scaled inversely by how complex it is. Intuitively, the more complex a subtree, the less its likelihood should affect the likelihood of the full interpretation tree, which is modelled by raising the child subtree's likelihood to the power of a term $1 + k \cdot (0.5 - c_i)$ where $k =$ `COMPLEXITY_LIKELIHOOD_SCALING` which increases the weight of the child subtree's likelihood if the complexity is low. Then, two bias terms are multiplied: one that increases the likelihood by up to $2^b = 2^\texttt{COMPLEXITY\_LIKELIHOOD\_BIAS}$ times if the subtree complexity is low, and the other parameter $p =$ `DEEP_TREE_LIKELIHOOD_PENALTY` which decreases the overall likelihood of deeply nested interpretation trees by scaling likelihood of each child subtree by $2^{-p}$:
+The first component $kappa (lambda_i, c_i)$ captures the likelihood of the child subtree scaled inversely by how complex it is. Intuitively, the more complex a subtree, the less its likelihood should affect the likelihood of the full interpretation tree, which is modelled by raising the child subtree's likelihood to the power of a term $1 + k dot (0.5 - c_i)$ where $k =$ `COMPLEXITY_LIKELIHOOD_SCALING` which increases the weight of the child subtree's likelihood if the complexity is low. Then, two bias terms are multiplied: one that increases the likelihood by up to $2^b = 2^#raw("COMPLEXITY_LIKELIHOOD_BIAS")$ times if the subtree complexity is low, and the other parameter $p =$ `DEEP_TREE_LIKELIHOOD_PENALTY` which decreases the overall likelihood of deeply nested interpretation trees by scaling likelihood of each child subtree by $2^(-p)$:
 
 $$
-\kappa (\lambda_i, c_i) =
-\begin{cases}
-    1 & \text{if } i \text{-th child is a leaf}, \\
-    \lambda_i^{1 + k \cdot (0.5 - c_i)} \cdot 2^{b \cdot (0.5 - c_i) - p} & \text{otherwise},
-\end{cases}
+kappa (lambda_i, c_i) = cases(
+    1 & "if" i "-th child is a leaf"\,,
+    lambda_i^(1 + k dot (0.5 - c_i)) dot 2^(b dot (0.5 - c_i) - p) quad & "otherwise"\,
+)
 $$
 Where `COMPLEXITY_LIKELIHOOD_SCALING` is initially set to 2.0, `COMPLEXITY_LIKELIHOOD_BIAS` to 1.5 and `DEEP_TREE_LIKELIHOOD_PENALTY` set to
 
-The second component $\text{dyad-align} (j \to i)$ is the dyadic alignment of the edge from parent $j$ to child $i$, computed from the dyadic tonicity $t_{j \to i} \in [0, 1]$ which represents how tonic the parent is when the parent and child notes are played in a vacuum. This value is retrieved from the lookup table as obtained in [Base case: Dyadic tonicity](#base-case-dyadic-tonicity). Contribution of dyadic alignment is scaled by `DYADIC_TONICITY_LIKELIHOOD_SCALING` initially set to 4.0:
+The second component $"dyad-align"(j -> i)$ is the dyadic alignment of the edge from parent $j$ to child $i$, computed from the dyadic tonicity $t_{j -> i} in [0, 1]$ which represents how tonic the parent is when the parent and child notes are played in a vacuum. This value is retrieved from the lookup table as obtained in [Base case: Dyadic tonicity](#base-case-dyadic-tonicity). Contribution of dyadic alignment is scaled by `DYADIC_TONICITY_LIKELIHOOD_SCALING` initially set to 4.0:
 
 $$
-\text{dyad-align} (j \to i) = \texttt{DYADIC\_TONICITY\_LIKELIHOOD\_SCALING}^{t_{j \to i} - 0.5}.
+"dyad-align"(j -> i) = #raw("DYADIC_TONICITY_LIKELIHOOD_SCALING")^(t_(j -> i) - 0.5).
 $$
-Note that the conservative range of $t_{j \to i} \in (0.44, 0.56)$ and extremely low variance (0.001) of the dyadic complexity score means that we probably have to increase the scaling of this component later.
+Note that the conservative range of $t_(j -> i) in (0.44, 0.56)$ and extremely low variance (0.001) of the dyadic complexity score means that we probably have to increase the scaling of this component later.
 
-Finally, the third component $\text{global-align} (j \to i)$ is the global tonicity alignment of parent $j$ and child $i$, computed the logistic function applied to the ratio between their global tonicities $t_j / t_i$. This contribution is scaled by `GLOBAL_TONICITY_LIKELIHOOD_SCALING` initially set to 4.0:
+Finally, the third component $"global-align"(j -> i)$ is the global tonicity alignment of parent $j$ and child $i$, computed the logistic function applied to the ratio between their global tonicities $t_j / t_i$. This contribution is scaled by `GLOBAL_TONICITY_LIKELIHOOD_SCALING` initially set to 4.0:
 
 $$
-    L(j \to i) = \frac{1}{1 + \exp(1 - \text{clamp}(t_j/t_i, \frac{1}{50}, 50))}, \\
-    \text{global-align} (j \to i) = \texttt{GLOBAL\_TONICITY\_LIKELIHOOD\_SCALING}^{L(j \to i) - 0.5}.
+    L(j -> i) &= 1/(1 + exp(1 - "clamp"(t_j/t_i, 1/50, 50))), \
+    "global-align"(j -> i) &= #raw("GLOBAL_TONICITY_LIKELIHOOD_SCALING")^(L(j -> i) - 0.5).
 $$
 
 #### Computing final dissonance score
@@ -1110,9 +1111,9 @@ $$
 The dissonance score is computed by the weighted sum of complexities of each interpretation tree, weighted twice, first by the aggregated softmax likelihoods of interpretation trees, and then by the probability of perceiving each root according to the updated global tonicity context (after updating tonicities towards the target). A softmax with low temperature `TONICITY_CONTEXT_TEMPERATURE_DISS` is applied on the global tonicity context to model how a listener would rather perceive one root at a time, rather than multiple roots simultaneously.
 
 $$
-\text{diss} = \sum_{r \in \text{roots}} \hat{t}_r \cdot \frac{\sum_{t \in \text{trees} (r)} c_t \cdot \ell_t}{\sum_{t \in \text{trees} (r)} \ell_t},
+"Diss" = sum_(r in "roots") hat(t)_r dot (sum_(t in "trees"(r)) c_t dot ell_t)/(sum_(t in "trees"(r)) ell_t),
 $$
-Where $\hat{t}_r$ is the softmax of global tonicity context of note $r$, `trees(r)` is the set of interpretation trees rooted at note $r$, $c_t$ is the complexity of tree $t$, $\ell_t$ is the softmax likelihood of tree $t$ amongst all interpretation trees (with temperature `TONICITY_CONTEXT_TEMPERATURE_TARGET`), and $\sum_{t \in \text{trees}(r)} \ell_t$ is the sum of all softmax tree likelihoods rooted at note $r$.
+Where $hat(t)_r$ is the softmax of global tonicity context of note $r$, `trees(r)` is the set of interpretation trees rooted at note $r$, $c_t$ is the complexity of tree $t$, $ell_t$ is the softmax likelihood of tree $t$ amongst all interpretation trees (with temperature `TONICITY_CONTEXT_TEMPERATURE_TARGET`), and $sum_(t in "trees"(r)) ell_t$ is the sum of all softmax tree likelihoods rooted at note $r$.
 
 This double-weighting ensures that both the most likely interpretation trees for each root, and trees with the most likely perceived root will have a stronger influence on the final dissonance score.
 
@@ -1194,7 +1195,7 @@ First, the sanity metrics checks the basic requirements of the algorithm:
 
 ### Adding & removing notes
 
-The [lattice visualizer](https://github.com/euwbah/n-edo-lattice-visualiser) is a real-time visualization for this complexity & tonicity algorithm, with the goal of detempering MIDI input played in any equal te``mperament in real-time.
+The [lattice visualizer](https://github.com/euwbah/n-edo-lattice-visualiser) is a real-time visualization for this complexity & tonicity algorithm, with the goal of detempering MIDI input played in any equal temperament in real-time.
 
 Unlike other models of harmonic analysis that rely on only notes that are currently being sounded/played, I acknowledge the important role of auditory memory in harmonic perception. Thus, the visualizer also models a short-term memory of notes that are played, where the strength/persistence of those notes increase with tonicity, volume (midi velocity), repetition, recency, and other supporting notes (octaves and fifths) based on the western cultural biases.
 
@@ -1202,21 +1203,21 @@ The exact implementation is beyond the scope of this article, but in a nutshell,
 
 When a new note is played that is not already in the pitch memory model (or an octave-equivalent), the visualizer goes through a pre-computed list of possible JI ratio interpretations (because the purpose of the visualizer is to perform real-time detemperament). These various interpretations are sent as candidate frequencies to this algorithm, where each candidate is assessed as the $(N+1)$-th note. The new candidate will be initialized with an initial tonicity score that scales proportionately to the average-of-dyads heuristic in [First step: Major vs minor triads](#first-step-major-vs-minor-triads).
 
-Specifically, the tonicity score of the new candidate will be initialized to the tonicity score in the dyadic heuristic. Then, the other existing notes' tonicities in the harmonic context will be re-normalized linearly to sum to $1 - t_{\text{new}}$.
+Specifically, the tonicity score of the new candidate will be initialized to the tonicity score in the dyadic heuristic. Then, the other existing notes' tonicities in the harmonic context will be re-normalized linearly to sum to $1 - t_"new"$.
 
-> [!IMPORTANT]
+> [!IMPORTANT] Question
 >
-> **Question**: How to improve the initial tonicity assignment of new candidates, especially so that the existing tonicities of notes are not too affected?
+> How to improve the initial tonicity assignment of new candidates, especially so that the existing tonicities of notes are not too affected?
 >
-> Besides initializing $t_\text{new}$ as the heuristic value, I have also tried initializing it to some small value like 0.001. Both seemed to end up with similar results in my experiments playing around with the visualizer.
+> Besides initializing $t_"new"$ as the heuristic value, I have also tried initializing it to some small value like 0.001. Both seemed to end up with similar results in my experiments playing around with the visualizer.
 
 Then, the "best candidate" will be picked, which is scored on a heuristic that depends on its dissonance contribution, JI complexity relative to the current tonal center/harmonic centroid in 5D space of 11-limit JI, and its tonicity, in descending order of precedence. The selected candidate is then added to the pitch memory model.
 
 ### Optimizations
 
-I would be happy if the algorithm could run as is. The problem now is that the computational complexity explodes exponentially with the number of notes. If I have 7 notes in the pitch memory model and I am playing one new note, the algorithm has to consider all possible interpretation trees with 8 notes, multiplied by the number of candidate frequencies for the new note (which can be up to 20). This gives a maximal complexity of performing a DFS on $8^7 \cdot 20 = 41,943,040$ trees per update tick.
+I would be happy if the algorithm could run as is. The problem now is that the computational complexity explodes exponentially with the number of notes. If I have 7 notes in the pitch memory model and I am playing one new note, the algorithm has to consider all possible interpretation trees with 8 notes, multiplied by the number of candidate frequencies for the new note (which can be up to 20). This gives a maximal complexity of performing a DFS on $8^7 dot 20 = 41,943,040$ trees per update tick.
 
-> This complexity is already an improvement over the previous version of the algorithm in [polyadic-old.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic-old.rs) that grew factorially with the number of notes, the previous algorithm would have to consider $8! \cdot 7! \cdot 20 = 4,064,256,000$ trees for a full search.
+> This complexity is already an improvement over the previous version of the algorithm in [polyadic-old.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic-old.rs) that grew factorially with the number of notes, the previous algorithm would have to consider $8! dot 7! dot 20 = 4,064,256,000$ trees for a full search.
 
 The full tree generation code is found in `gen_sts()` of [tree_gen.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/tree_gen.rs), where I used a root-down approach with a combinatorial choosing function to enumerate possible children for each node. It turns out that generating the set of all spanning trees under the optimizing constraints below is not a trivial algorithm.
 
@@ -1228,13 +1229,15 @@ Any path of from the root to leaf in an interpretation tree represents a chain o
 
 For example, in the depth-3 tree below:
 
-![Deep interpretation tree](deep-tree.drawio.png)
+![Deep interpretation tree](https://api.haxiom.io/api/v1/documents/image/d0cd6151-71eb-434d-aa46-fcfc7e1857c1)
+
 
 The path from C4 to B4 implies an interpretation where the listener chooses to hear B4 as the fifth of E4 as the minor third below G4 as the fifth of C4.
 
 Intuitively, there would be no reason for a listener to interpret this chord in such a convoluted way. Instead, something more intuitive would follow the natural construction of Cmaj9 where fifth-extensions are stacked on the root and third, which yields a depth-2 tree:
 
-![Shallowed interpretation tree](fixed-deep-tree.drawio.png)
+![Shallowed interpretation tree](https://api.haxiom.io/api/v1/documents/image/620f959a-1144-4625-9a74-595939d87bde)
+
 
 There are some edge cases of extremely complex large chords where deep interpretation trees are intuitive, but (to my subjective intuition), most interpretation trees are within a depth of 3 (i.e., where the root is depth 0, the deepest leaf node is the great-grandchild of the root).
 
@@ -1244,13 +1247,13 @@ This optimization is parametrized by the `max_depth` parameter of `gen_sts()`.
 
 Another intuitive optimization is to limit the number of children (or equivalently, siblings) each node can have. Take for example the following tree:
 
-![Node with too many siblings](many-siblings.drawio.png)
+![Node with too many siblings](https://api.haxiom.io/api/v1/documents/image/998a5429-fec3-4e4d-8035-aca13c018ca9)
 
 It is unlikely for a listener to interpret 5 notes all with respect to a non-root E4. In this case we have a Cmaj13#11 chord represented as a tertian stack, so the following interpretations would be more intuitive for me:
 
-![More balanced tree, less siblings](less-siblings.drawio.png)
+![More balanced tree, less siblings](https://api.haxiom.io/api/v1/documents/image/44cc27de-5ed3-46ab-90ac-4e5295a20fce)
 
-I find that 3 siblings is a reasonable limit for most interpretations.
+I find that 3 children per node is a reasonable limit for most interpretations.
 
 This optimization is parametrized by the `max_siblings` parameter of `gen_sts()`.
 
@@ -1260,7 +1263,7 @@ There is an intuitive ordering of trees that decided whether a tree "made sense"
 
 Compare the following two interpretations of the same voicing of the chord Cmaj13#11:
 
-![Pre-order inversions](preorder-inversions.drawio.png)
+![Pre-order inversions](https://api.haxiom.io/api/v1/documents/image/c84a3dbf-1a53-47c4-9982-740499032c7d)
 
 Both trees have the same structure and the same root, the root has three children, one with no children, one with one child, and one with two children; both trees' nodes' children are sorted in increasing pitch order visually from left to right, and both trees have relatively consonant intervals between parent and child nodes.
 
@@ -1268,11 +1271,11 @@ However, one tree "made more sense". At least for me, that was the right tree.
 
 The notes of the voicing, in order of ascending pitch, is C4 E4 G4 B4 D5 F#5 A5, which is the standard tertian stack for Cmaj13#11.
 
-However, the left three feels "all over the place". My intuition told me it had something to do with how notes want to be perceived in order of bottom to top. I.e., lower notes are more likely seen as the parents of higher notes (because we naturally hear higher notes relative to lower notes).
+However, the left tree feels "all over the place". My intuition told me it had something to do with how notes want to be perceived in order of bottom to top. I.e., lower notes are more likely seen as the parents of higher notes (because we naturally hear higher notes relative to lower notes), and the children of lower notes should rarely be higher than the children of higher notes. E.g., F#5 is the child of E4 and B4 & A4 are children of G4, but E4 is lower than G4, yet F#5 is higher than B4 and A4.
 
-Initially I thought that this was only due to the tertian nature of the voicing, so I tried this intuition experiment with another common voicing: C4 C#4 E4 G4 A4 C5, which is relatively common closed voicing for C13b9:
+Initially I thought that this was only due to the tertian nature of the voicing, so I tried this experiment with another common voicing: C4 C#4 E4 G4 A4 C5, which is relatively common closed voicing for C13b9:
 
-![C13b9 pre-order intuitive interpretation comparison](C13b9-preorder-intuition.drawio.png)
+![C13b9 pre-order intuitive interpretation comparison](https://api.haxiom.io/api/v1/documents/image/86cdd47a-1704-4828-96a2-5ccdee592fe5)
 
 There is only one difference between the two trees: the position of E4 and A4 are swapped (and the children of C4 are sorted in ascending pitch as usual). Both trees still preserve the A major substructure of the voicing as a subtree.
 
@@ -1304,7 +1307,7 @@ The right tree for Cmaj13#11 models the interpretation as:
 
 **Claim 1**: Pre-order traversal of the tree gives an order of precedence of notes. Notice how if we perceive sibling nodes in ascending pitch order, we end up with a natural order of pitch perception in pre-order traversal. Of course, the biggest counter-example would be the fact that the lowest and highest pitches are perceived first in practice. However, the intuition of constructing how notes relate to each other still holds when hearing in terms of vertical harmony.
 
-**Claim 2**: The intuitive "weirdness" of tree comes from inversions of the pre-order traversal when compared to the pitch-order of the voicing. Given an original ordering of notes $\left(N_i\right)_{i=1}^N$ from low to high, the number of **inversions** is the number of pairs of notes $(N_i, N_j)$ such that $i < j$ but $N_i$ appears after $N_j$ in the pre-order traversal of the tree.
+**Claim 2**: The intuitive "weirdness" of tree comes from inversions of the pre-order traversal when compared to the pitch-order of the voicing. Given an original ordering of notes $(N_i)_(i=1)^N$ from low to high, the number of **inversions** is the number of pairs of notes $(N_i, N_j)$ such that $i < j$ but $N_i$ appears after $N_j$ in the pre-order traversal of the tree.
 
 > [!IMPORTANT]
 >
@@ -1345,7 +1348,7 @@ Working through more of these examples gave me more confidence that limiting the
 
 As a guideline for the maximum number of inversions allowed, I considered the following interpretation of Cmaj13#11:
 
-![Cmaj13#11 in stacked fifths](cmaj13-11-in-fifths.drawio.png)
+![Cmaj13#11 in stacked fifths](https://api.haxiom.io/api/v1/documents/image/b766e551-7ea9-443d-9d23-47ee5808f99d)u
 
 The pre-order traversal is C4, E4, B4, F#5, G4, D5, A5, which has 3 inversions:
 
@@ -1371,21 +1374,21 @@ Before pruning, there are a total of $N^{N-1}$ unique spanning trees (counting u
 
 ### Tree generation
 
-The algorithm for enumerating all possible spanning trees within the above constraints was not as trivial as I thought. The full implementation is in [tree_gen.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/tree_gen.rs) in the `gen_sts()` function (where `gen_sts_recursive` is doing the bulk of the work).
+The algorithm for enumerating all possible spanning trees within the above constraints was not trivial. The full implementation is in [tree_gen.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/tree_gen.rs) in the `gen_sts()` function (where `gen_sts_recursive` is doing the bulk of the work).
 
 Most spanning tree generation algorithms are leaf-up, i.e., starting from individual unconnected nodes and adding edges between them until all nodes are connected, checking that there are no cycles at each step. This is the main process for other spanning tree algos especially minimum spanning tree algorithms like Prim's and Kruskal's.
 
 However, the leaf-up approach wouldn't work since the bulk of the pruning was done using the pre-order traversal of trees, which meant the root and lower-depth structure had to be fixed in order for early pruning to be done.
 
-The main issue I faced with the root-down spanning tree generation was that there were many orders the same set of edges can be added in. E.g., for just 3 nodes, ordering $0 \to 1$ then $0 \to 2$ was regarded as a different tree than $0 \to 2$ then $0 \to 1$.
+The main issue I faced with the root-down spanning tree generation was that there were many orders the same set of edges can be added in. E.g., for just 3 nodes, populating the edges $0 -> 1$ then $0 -> 2$ was regarded as a different tree than $0 -> 2$ then $0 -> 1$.
 
-> In the first iteration of this algo where complexity scores were aggregated over all edge-orders of all spanning trees, this made sense to do, but it blew up the search space to beyond cosmic horrors, and the aggressive pruning that had to be done nullified the benefit of a tree-based algorithm.
-
-To work around this, a queue of visited nodes had to be kept, which tracked which nodes have not yet been assigned children. Each visit to a node would comprise iterating over 0 to the max number of children (3), and for each iteration, forming all ascending-order sets of combinations of remaining unvisited nodes, and those will be assigned as children of each possible spanning tree. This happens until all nodes are visited or one of the constraints were broken.
+To work around this, a queue of visited nodes had to be kept, which tracked which nodes have not yet been assigned children. Each visit to a node would comprise iterating over 0 to the max number of children (i.e., 3), and for each iteration, forming all ascending-order sets of combinations of remaining unvisited nodes, and those will be assigned as children of each possible spanning tree. This happens until all nodes are visited or one of the constraints were broken.
 
 The tree generation process takes around a few seconds and is done at loading time of the WASM module. Unlike the previous version of `graph-diss` which generated and pruned trees on the fly, I found it much more efficient this time to pre-compute trees first, then iterate over the pre-computed trees.
 
-Pros of pre-computing trees: faster chord evaluation time. Cons: pruning metrics that depended on algo-specific values (e.g., complexity/likelihood of subtree) cannot be used for additional computation speedup, so the algorithm had to always iterate over entire pre-computed trees to work well.
+Pros of pre-computing trees: faster chord evaluation time.
+
+Cons: pruning metrics that depended on algo-specific values (e.g., complexity/likelihood of subtree) cannot be used for additional computation speedup, so the algorithm could not choose which trees to discard mid-computation
 
 ### Memoization of DFS across interpretation trees
 
@@ -1783,7 +1786,7 @@ Judging from the above janky histograms and stats, this algorithm's dissonance s
 
 ## Thanks for reading!
 
-If you have made it until here, I sincerely thank you and appreciate your interest! I would love to have a chat or answer any questions on Discord (@euwbah), Instagram (@euwbah), or email (euwbah [ａ𝐭] ġｍаíḷ [ɗօt] ċοm).
+If you have made it until here, I sincerely thank you and appreciate your interest! Feel free to reach out over Discord (@euwbah), Instagram (@euwbah), or email (euwbah [ａ𝐭] ġｍаíḷ [ɗօt] ċοm).
 
 If you wish to support my work & research, you may share this article, star [this repository on GitHub](https://github.com/euwbah/dissonance-wasm), subscribe to my YouTube channel, or consider [sponsoring me](https://github.com/sponsors/euwbah).
 

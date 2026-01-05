@@ -457,6 +457,9 @@ pub struct GraphDissDebug {
 
     /// All trees sorted by increasing contribution to dissonance: complexity * exp(likelihood)
     trees_sorted_asc_contrib: BTreeSet<TreeResultContribAsc>,
+
+    /// All trees sorted by increasing likelihood
+    trees_sorted_asc_like: BTreeSet<TreeResultLikeAsc>,
 }
 
 impl GraphDissDebug {
@@ -472,10 +475,11 @@ impl GraphDissDebug {
             per_root_agg_complexities: vec![],
             per_root_agg_complexities_weighted_global: vec![],
             trees_sorted_asc_contrib: BTreeSet::new(),
+            trees_sorted_asc_like: BTreeSet::new(),
         }
     }
 
-    pub fn print(&self, cents: &[f64], show_top_n_contributing_trees: usize) {
+    pub fn print(&self, cents: &[f64], show_top_n_contributing_trees: usize, show_top_n_likelihood_trees: usize) {
         let sum_exp_likelihood = self
             .trees_sorted_asc_contrib
             .iter()
@@ -512,7 +516,7 @@ impl GraphDissDebug {
             }
         }
         if show_top_n_contributing_trees != 0 {
-            println!("Trees sorted by descending diss contribution:");
+            println!("Top {show_top_n_contributing_trees} dissonance contributing trees:");
 
             for tree in self
                 .trees_sorted_asc_contrib
@@ -524,6 +528,22 @@ impl GraphDissDebug {
                 println!(
                     " -> contrib {:>6.4} (complexity {:>6.4}, likelihood {:>6.4}):",
                     contrib, tree.complexity, tree.likelihood
+                );
+                tree.tree.print();
+            }
+        }
+        if show_top_n_likelihood_trees != 0 {
+            println!("Top {show_top_n_likelihood_trees} likelihood trees:");
+
+            for tree in self
+                .trees_sorted_asc_like
+                .iter()
+                .rev()
+                .take(show_top_n_likelihood_trees)
+            {
+                println!(
+                    " -> likelihood {:>6.4} (complexity {:>6.4}):",
+                    tree.likelihood, tree.complexity
                 );
                 tree.tree.print();
             }
@@ -636,10 +656,12 @@ pub fn graph_dissonance(
         HEURISTIC_DYAD_TONICITY_TEMP,
     );
 
-    let tonicity_context = if tonicity_context.iter().sum::<f64>() == 0.0 {
+    let old_tonicity_context_sum: f64 = tonicity_context.iter().sum();
+
+    let tonicity_context = if old_tonicity_context_sum == 0.0 {
         heuristic_tonicities.tonicities_no_cand.clone()
     } else {
-        tonicity_context.to_vec()
+        tonicity_context.iter().map(|x| x / old_tonicity_context_sum).collect()
     };
 
     let dyad_roughs = heuristic_tonicities.add_roughness_map; // use additive roughness.
@@ -771,7 +793,10 @@ pub fn graph_dissonance(
                 }
 
                 d.trees_sorted_asc_contrib
-                    .insert(TreeResultContribAsc(entry));
+                    .insert(TreeResultContribAsc(entry.clone()));
+
+                d.trees_sorted_asc_like
+                    .insert(TreeResultLikeAsc(entry));
             }
         }
 
@@ -1803,6 +1828,80 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_context_effect() {
+        let time = 2.5;
+        let iters = 1;
+
+        graph_diss_ctx(
+            &[0.0, 400.0, 700.0, 1100.0, 1400.0, 1800.0, 2100.0],
+            &[0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+            "Cmaj13#11 with C context",
+            time,
+            iters,
+        );
+
+        graph_diss_ctx(
+            &[0.0, 400.0, 700.0, 1100.0, 1400.0, 1800.0, 2100.0],
+            &[0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1],
+            "Cmaj13#11 with E context",
+            time,
+            iters,
+        );
+
+        graph_diss_ctx(
+            &[0.0, 400.0, 700.0, 1100.0, 1400.0, 1800.0, 2100.0],
+            &[0.1, 0.1, 0.1, 0.1, 0.1, 0.2, 0.1],
+            "Cmaj13#11 with F# context",
+            time,
+            5,
+        );
+
+        graph_diss_ctx(
+            &[0.0, 300.0, 700.0, 1000.0, 1400.0, 1700.0, 2100.0],
+            &[0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+            "Cmin13 with C context",
+            time,
+            iters,
+        );
+        graph_diss_ctx(
+            &[0.0, 300.0, 700.0, 1000.0, 1400.0, 1700.0, 2100.0],
+            &[0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1],
+            "Cmin13 with Eb context",
+            time,
+            iters,
+        );
+        graph_diss_ctx(
+            &[0.0, 300.0, 700.0, 1000.0, 1400.0, 1700.0, 2100.0],
+            &[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.2],
+            "Cmin13 with A context",
+            time,
+            iters,
+        );
+
+        graph_diss_ctx(
+            &[0.0, 300.0, 600.0, 1000.0, 1300.0, 1700.0, 2000.0],
+            &[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.2],
+            "Cm11b5b9 with Ab context",
+            time,
+            iters,
+        );
+        graph_diss_ctx(
+            &[0.0, 300.0, 600.0, 1000.0, 1300.0, 1700.0, 2000.0],
+            &[0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1],
+            "Cm11b5b9 with Eb context",
+            time,
+            iters,
+        );
+        graph_diss_ctx(
+            &[0.0, 300.0, 600.0, 1000.0, 1300.0, 1700.0, 2000.0],
+            &[0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+            "Cm11b5b9 with C context",
+            time,
+            iters,
+        );
+    }
+
     /// Run this test to compute certain sanity metrics
     ///
     /// (e.g., whether results agree with intuition or not).
@@ -1997,70 +2096,19 @@ mod tests {
 
         graph_diss(
             &[0.0, 400.0, 700.0, 1100.0, 1400.0, 1800.0, 2100.0],
-            "Cmaj13#11",
+            "Cmaj13#11 (tertian lydian)",
             time,
             iters,
         );
         graph_diss(
             &[0.0, 300.0, 700.0, 1000.0, 1400.0, 1700.0, 2100.0],
-            "Cmin13",
-            time,
-            iters,
-        );
-    }
-
-    #[test]
-    fn test_scaling_number_of_notes() {
-        let time = 2.5;
-        let iters = 1;
-
-        println!("===================== OCTAVES =======================");
-        graph_diss(&[0.0, 1200.0], "2 notes", time, iters);
-        graph_diss(&[0.0, 1200.0, 2400.0], "3 notes", time, iters);
-        graph_diss(&[0.0, 1200.0, 2400.0, 3600.0], "4 notes", time, iters);
-        graph_diss(
-            &[0.0, 1200.0, 2400.0, 3600.0, 4800.0],
-            "5 notes",
+            "Cmin13 (tertian dorian)",
             time,
             iters,
         );
         graph_diss(
-            &[0.0, 1200.0, 2400.0, 3600.0, 4800.0, 6000.0],
-            "6 notes",
-            time,
-            iters,
-        );
-
-        println!("===================== FIFTHS ========================");
-        graph_diss(&[0.0, 700.0], "2 notes", time, iters);
-        graph_diss(&[0.0, 700.0, 1400.0], "3 notes", time, iters);
-        graph_diss(&[0.0, 700.0, 1400.0, 2100.0], "4 notes", time, iters);
-        graph_diss(
-            &[0.0, 700.0, 1400.0, 2100.0, 2800.0],
-            "5 notes",
-            time,
-            iters,
-        );
-        graph_diss(
-            &[0.0, 700.0, 1400.0, 2100.0, 2800.0, 3500.0],
-            "6 notes",
-            time,
-            iters,
-        );
-
-        println!("===================== FOURTHS =======================");
-        graph_diss(&[0.0, 500.0], "2 notes", time, iters);
-        graph_diss(&[0.0, 500.0, 1000.0], "3 notes", time, iters);
-        graph_diss(&[0.0, 500.0, 1000.0, 1500.0], "4 notes", time, iters);
-        graph_diss(
-            &[0.0, 500.0, 1000.0, 1500.0, 2000.0],
-            "5 notes",
-            time,
-            iters,
-        );
-        graph_diss(
-            &[0.0, 500.0, 1000.0, 1500.0, 2000.0, 2500.0],
-            "6 notes",
+            &[0.0, 300.0, 600.0, 1000.0, 1300.0, 1700.0, 2000.0],
+            "Cm11b5b9 (tertian locrian)",
             time,
             iters,
         );
@@ -2079,38 +2127,44 @@ mod tests {
         elapsed_seconds: f64,
         iters: usize,
     ) -> Vec<GraphDissTestResult> {
+        graph_diss_ctx(cents, &vec![], name, elapsed_seconds, iters)
+    }
+
+    fn graph_diss_ctx(
+        cents: &[f64],
+        ctx: &[f64],
+        name: &str,
+        elapsed_seconds: f64,
+        iters: usize,
+    ) -> Vec<GraphDissTestResult> {
         // if non-zero, show this many lowest complexity trees per root
-        const SHOW_N_TREES: usize = 2;
+        const SHOW_N_TREES: usize = 0;
 
         // if true, show trees sorted by descending diss contribution (complexity * softmax likelihood)
-        const SHOW_TOP_N_CONTRIBUTING_TREES: usize = 10;
+        const SHOW_TOP_N_CONTRIBUTING_TREES: usize = 0;
 
-        // if false, inits with uniform tonicity context.
-        const INIT_WITH_DYADIC_HEURISTIC: bool = true;
+        const SHOW_TOP_N_LIKELIHOOD_TREES: usize = 0;
+
+        let use_debug = SHOW_N_TREES + SHOW_TOP_N_CONTRIBUTING_TREES + SHOW_TOP_N_LIKELIHOOD_TREES > 0;
 
         let freqs = cents
             .iter()
             .map(|x| cents_to_hz(440.0, *x))
             .collect::<Vec<f64>>();
-        let mut context = if INIT_WITH_DYADIC_HEURISTIC {
-            vec![0.0; cents.len()] // passing a 0 vector will make graph_dissonance initialize with dyadic tonicity heuristic.
-        } else {
-            vec![1.0 / cents.len() as f64; cents.len()]
-        };
-
-        let heuristic_tonicities = context.clone();
 
         let mut results_per_iter = vec![];
+
+        let mut context = ctx.to_vec();
 
         println!(
             "\n============  Graph diss: {}  =====================\n",
             name
         );
         for i in 0..iters {
-            let mut debug = if SHOW_N_TREES | SHOW_TOP_N_CONTRIBUTING_TREES == 0 {
-                None
-            } else {
+            let mut debug = if use_debug {
                 Some(GraphDissDebug::new(SHOW_N_TREES, cents.len()))
+            } else {
+                None
             };
             let diss = graph_dissonance(
                 &freqs,
@@ -2130,10 +2184,10 @@ mod tests {
             println!("Iteration {}/{iters}", i + 1);
             for (idx, cents) in cents.iter().enumerate() {
                 println!(
-                    "  {:>7.2}c: ton {:>6.4}, ton heur: {:>6.4}, ton tgt: {:>6.4}, diss raw: {:>6.4}, diss ctx: {:>6.4}",
+                    "  {:>7.2}c: ton {:>6.4}, ton ctx: {:>6.4}, ton tgt: {:>6.4}, diss raw: {:>6.4}, diss ctx: {:>6.4}",
                     cents,
                     diss[0].tonicity_context[idx],
-                    heuristic_tonicities[idx],
+                    context[idx],
                     diss[0].tonicity_target[idx],
                     debug.as_ref().map(|d| d.per_root_agg_complexities[idx]).unwrap_or(f64::NAN),
                     debug.as_ref().map(|d| d.per_root_agg_complexities_weighted_global[idx]).unwrap_or(f64::NAN)
@@ -2145,7 +2199,7 @@ mod tests {
             // Print the lowest complexity trees per root
 
             if let Some(debug) = debug {
-                debug.print(cents, SHOW_TOP_N_CONTRIBUTING_TREES);
+                debug.print(cents, SHOW_TOP_N_CONTRIBUTING_TREES, SHOW_TOP_N_LIKELIHOOD_TREES);
             }
             context = diss[0].tonicity_context.clone();
         }
@@ -2298,12 +2352,12 @@ mod tests {
         .clone();
 
         println!("\nExisting: {:#?}", diss_existing);
-        debug_existing.unwrap().print(&cents, 10);
+        debug_existing.unwrap().print(&cents, 0, 10);
 
         println!("\nCandidate: {:#?}", diss_candidate);
 
         println!("\nCandidate simulated: {:#?}", diss_cand_simul);
-        debug_candidate_simul.unwrap().print(&cents, 10);
+        debug_candidate_simul.unwrap().print(&cents, 0, 10);
 
         println!(
             "\nInit with simul heur tonicities: {:#?}",
