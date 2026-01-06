@@ -5,28 +5,33 @@
 >
 > This document has moved to https://pages.haxiom.io/@euwbah/graph-diss
 
+
 _in 5D with multiverse and timetravel_
 
 ![Banner image](https://api.haxiom.io/api/v1/documents/image/0183e467-fa81-4372-b974-db252b8477f5)
+
+**This article is a journal for this project: [https://github.com/euwbah/dissonance-wasm](https://github.com/euwbah/dissonance-wasm)**
 
 ## tl;dr
 
 A new algorithm for modelling the perception of complexity and tonicity of chords up to 8 notes. Tonicity is the measure of how likely the note is to be perceived as the "tonic", which may or may not correspond to the chord. This is done in real-time which, when used in conjunction with my [visualizer](https://github.com/euwbah/n-edo-lattice-visualiser), updates a model of pitch memory that tracks the listener's interpretation of up to 8 unique notes over time.
 
-This model is not biased towards any tuning system or musical culture, in the sense that there was no hard-coding of weights/penalties/points from existing musical patterns/vocabulary I am familiar with. It's only inputs are frequencies and the tonicity of each note from the previous update tick. It has zero machine-learned/statistically regressed parameters, but has results that mostly agree with my subjective perception of consonance and root perception in Western/European musical harmony.
+This model is not biased towards any tuning system or musical culture, in the sense that there was no hard-coding of weights/penalties/points from existing musical patterns/vocabulary I am familiar with. Its only inputs are frequencies and the tonicity of each note from the previous update tick. The core model has no machine-learned/statistically regressed parameters and every step is explainable in terms of the frequencies between pairs of notes. Despite this, the results mostly agree with my subjective perception of consonance and root perception in Western/European musical harmony, more than any other model I have seen (however, this is by definition, subjective, but I just needed a model that I can agree with for my personal use).
 
 The only assumption made is that the instrument has a harmonic timbre (although this setting can be changed easily by modifying [dyad_lookup.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/dyad_lookup.rs)).
 
 The model is only based on dyadic relationships between notes, but unlike most other chord complexity models with dyadic-based approaches, it:
 
-1. Captures the gestalt of the chord voicing at different hierarchies of detail, without having to precompute the space of $N$-note chord combinations
+1. Captures the gestalt of the chord at different hierarchies of detail, without having to precompute the space of $N$-note chord combinations
 2. Does not have harmonic duality (major and minor triads do not have the same complexity score)
 3. Depends on the current musical context by keeping track of pitch memory over time
 
-Two core concepts that make it work:
+Two key ideas that make it work:
 
-1. Treating subjective interpretations of chords as trees, where a (parent, child) edge is used to model the listener hearing the child note with respect to the parent note, e.g. `C->E` means E is heard as M3 of C. (See [Interpretation Trees](#generalizing-polyadic-complexity-using-interpretation-trees))
-2. Using the asymmetry of the complexity of intervals about the octave to break the symmetry of chord duality/negative harmony. E.g., it is generally accepted that P4 and P5 do not have the same complexity, even though they are octave-duals of each other. This asymmetry is exploited so that overall chord perception is modelled more than the sum of its pairwise dyadic complexities. (See [Dyadic Tonicity](#base-case-dyadic-tonicity))
+1. Modelling subjective interpretations of chords as trees, where a (parent, child) edge is used to model the listener hearing the child note with respect to the parent note, e.g. `C->E` means E is heard as M3 of C. By aggegating over the space of interpretations, the considers different permutations of substructures present in the chord that all contribute to the gestalt. (See [Interpretation Trees](#generalizing-polyadic-complexity-using-interpretation-trees))
+2. Using the asymmetry of the complexity of intervals about the octave to break the symmetry of chord duality/negative harmony. E.g., it is generally accepted that P4 and P5 do not have the same complexity, even though they are octave-duals of each other. This asymmetry is exploited so that intervals have a preferred natural order, and this preference contributes to the likelihood of choosing one interpretation of the chord over another. (See [Dyadic Tonicity](#base-case-dyadic-tonicity))
+
+Because it only depends on dyadic relationships, it is computationally efficient and can run in realtime. This model powers the automatic just intonation detemperament, root detection, and dissonance scoring logic in my visualizer which responds as I play. (See [videos](https://www.youtube.com/playlist?list=PLJXVjYxYcHyL19MvzaT3w8EjgpDJGSaGh))
 
 ## Introduction
 
@@ -226,11 +231,11 @@ Now I say that the above definition of otonality is vague because I notice that 
 3. Any dyad whose higher note is higher up the harmonic series than the lower note, up to octave displacement, is otonal: any $2^n dot.c a : 2^m dot.c b$ for any $n, m in NN$ where $a <= b$ and $2^n dot.c a <= 2^m dot.c b$ is otonal, and $n, m$ are such that $a, b$ are not even. E.g., `7/5` is otonal but `10/7` is not.
 4. Any dyad which is _close enough_ to any interval that is otonal/utonal by the above definition is otonal/utonal respectively. E.g., we can consider `14/11`, and also 400 cents, otonal because it is close to `5/4` and `81/64`. The closer the interval is to other simple JI otonal/utonal intervals, and the simpler (lower height) of those JI intervals, the stronger the pull towards that classification.
 
-These levels of definitions create a continuum of otonality/utonality. @hyperbolekillsme on the [Xenharmonic Alliance Discord](https://discord.gg/QaQQpw7fN5) generated a plot using [this python script](https://discord.com/channels/332357996569034752/947247604100649000/1395090206247358474) which evaluates the otonality of intervals (otonality in blue line):
+These levels of definitions create a continuum of otonality/utonality. `@hyperbolekillsme` on the [Xenharmonic Alliance Discord](https://discord.gg/QaQQpw7fN5) generated a plot using [this python script](https://discord.com/channels/332357996569034752/947247604100649000/1395090206247358474) which evaluates the otonality of intervals (otonality in blue line):
 
-![Otonality plot by @hyperbolekillsme](https://api.haxiom.io/api/v1/documents/image/c8f9b2b9-1aba-4b6d-8197-8dc75cdfd595)
+![Otonality plot by `@hyperbolekillsme`](https://api.haxiom.io/api/v1/documents/image/c8f9b2b9-1aba-4b6d-8197-8dc75cdfd595)
 
-This was done by computing the otonality component for the numerator and denominator of each JI $n/d$ up to a fixed height using the multiplicative Euler method: e.g., $"comp"(n) = product_i (p_i - 0.5)$, where $n = product_i p_i$ and $p_i$ are primes. Then, raw otonality for a JI interval $n/d$ is computed as
+This was done by computing the otonality component for the numerator and denominator of each JI $n/d$ up to a fixed height using _multiplicative Euler complexity_ (as `@hyperbolekillsme` calls it): e.g., $inline("comp"(n) = product_i (p_i - 0.5))$, where $inline(n = product_i p_i)$ and $p_i$ are primes. Then, raw otonality for a JI interval $n/d$ is computed as
 $$
 "otonality"(n, d) = log_2 "comp" (n) - log_2 "comp" (d).
 $$
@@ -453,7 +458,7 @@ The next challenge: How to aggregate over different interpretations of the same 
 
 1. Going back to the C13b9 voicing example, note that there are many other ways of interpreting this particular voicing, and not necessarily with C as the root. Though, certain ways of interpreting will feel more intuitive than others. How do we model this?
    - E.g., we could also interpret the voicing as an Bbdim (Bb Db E) over an Am dyad (A C), but this does not feel intuitive to me.
-     ![Weird C13b9 voicing](https://api.haxiom.io/api/v1/documents/image/7c9f87d1-3ef3-41be-be7c-7f65eae8cf29)
+     ![Weird C13b9 voicing](https://api.haxiom.io/api/v1/documents/image/2dce74fd-1880-4765-83a1-d115b10a86d6)
 
 
    > [!TIP] In hindsight
@@ -1121,7 +1126,7 @@ This double-weighting ensures that both the most likely interpretation trees for
 
 The target global tonicities are computed by the softmax of likelihoods of each interpretation tree, with temperature `TONICITY_CONTEXT_TEMPERATURE_TARGET`.
 
-### Algorithm v2 results (pre-optimization/tuning)
+## Algorithm v2 results (pre-optimization & tuning)
 
 I have run some initial tests with
 
@@ -1154,9 +1159,11 @@ const TONICITY_CONTEXT_TEMPERATURE_DISS: f64 = 0.1;
 >
 > The test function `graph_diss()` has adjustable parameters that control how much information is displayed. Currently, only the top 2 likelihood and lowest 2 complexity trees are displayed per root, and the overall top 10 dissonance contributing trees are displayed for each chord voicing.
 >
-> I have only kept the important metrics in the examples below, so I recommend exploring the test results or running your own tests :)
+> I have only kept the important metrics in the examples below, so I recommend exploring the test results or running your own tests.
 
-First, the sanity metrics checks the basic requirements of the algorithm:
+### Sanity metrics
+
+Sanity metrics checks the basic requirements of the algorithm:
 
 ```txt
 =============== SANITY METRICS ================
@@ -1190,6 +1197,9 @@ First, the sanity metrics checks the basic requirements of the algorithm:
 
 - `targ. C conf min`: The target tonicity of C in the C minor triad. A higher value means that the model is more confident that C is the root of the C minor triad.
   - In the old version of this project (before this article was written), the model would say Eb is the root of the C minor triad. This is not exactly wrong (because relative major), but according to intuition, in a vacuum, the perfect fifth C-G's likelihood contribution to C as root should outweigh the major third between Eb and G, which this model is now able to capture.
+
+> [!NOTE]
+> After some optimizations & more tuning, I ran a larger set of tests: see [Algorithm v2 results post-optimization/tuning](#algorithm-v2-results-post-optimizationtuning)
 
 ## Practical considerations
 
@@ -1468,7 +1478,7 @@ However, since the `SubtreeKey` indexes nodes based on ascending pitch, when the
 
 Hence, to allow for memoizing repeated calculations over different candidate notes, the pre-computed subtree keys had to be transformed via `polyadic::remap_subtree_key_to_og_indexing()`, which remaps subtree keys from ascending-pitch indexing to the indexing as per `freqs` passed to `graph_dissonance()`, and the candidate note is assigned to the last index.
 
-The following test benchmarks the evolution of tonicity scores over 2000 iterations of updating the tonicities of 6 existing notes + 10 choices of candidate notes.
+The following test benchmarks the evolution of tonicity scores over 500 iterations of updating the tonicities of 6 existing notes + 10 choices of candidate notes.
 
 ```txt
 Bench iter 0: max tonicity cands idx: 3, tonicities: [0.16282858618467694, 0.16171231622828977, 0.16070448093331896, 0.16251010312599934, 0.1610516490358855, 0.16212473363546345, 0.02906813085636607]
@@ -1560,7 +1570,7 @@ In fact, even after removing most of the trees (randomly selecting 100 out of 69
 
 To err on the side of more accuracy, I have set `MAX_TREES = 800` for real-time update of existing chords, and `MAX_TREES_CANDIDATES = 4000` which is evenly distributed across the number of candidate frequencies provided (e.g., if 10 candidate frequencies are given, then each candidate will be allowed to evaluate up to 400 trees).
 
-### Algorithm v2 results (post-optimization/tuning)
+## Algorithm v2 results (post-optimization/tuning)
 
 Using the following parameters:
 
@@ -1581,22 +1591,1254 @@ const TONICITY_CONTEXT_TEMPERATURE_TARGET: f64 = 0.8;
 const TONICITY_CONTEXT_TEMPERATURE_DISS: f64 = 0.1;
 ```
 
-Guidelines on how to adjust these parameters can be found in the documentation of the parameters in [polyadic.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic.rs).
+> [!TIP]
+> Guidelines on how to adjust these parameters can be found in the documentation of the parameters in [polyadic.rs](https://github.com/euwbah/dissonance-wasm/blob/master/src/polyadic.rs).
+
+The following tests computed `graph_dissonance()` where `max_trees` was unlimited. In real-time mode, these results may be slightly deteriorated.
 
 Performing tests with
 
 ```sh
 cargo test polyadic::tests::test_graph_diss --release -- --exact --no-capture > test_graph_diss_memo.txt
 cargo test polyadic::tests::test_sanity_metrics --release -- --exact --no-capture > test_sanity_memoized_cand.txt
+cargo test test_context_effect --release -- --no-capture > test_context_effect.txt
 ```
 
-The results can be found in [test_sanity_memoized_cand.txt](https://github.com/euwbah/dissonance-wasm/blob/master/paper/test_sanity_memoized_cand.txt) and [test_graph_diss_memo.txt](https://github.com/euwbah/dissonance-wasm/blob/master/paper/test_graph_diss_memo.txt).
+The results can be found in [test_sanity_memoized_cand.txt](https://github.com/euwbah/dissonance-wasm/blob/master/paper/test_sanity_memoized_cand.txt), [test_graph_diss_memo.txt](https://github.com/euwbah/dissonance-wasm/blob/master/paper/test_graph_diss_memo.txt), and [test_context_effect.txt](https://github.com/euwbah/dissonance-wasm/blob/master/paper/test_context_effect.txt).
+
+### Sanity tests
+
+> [!NOTE]
+> I have reduced the effect of `GLOBAL_TONICITY_LIKELIHOOD_SCALING` and capped the maximum (multiplicative) change in likelihood to $e$.
+>
+> In other tests, the global tonicity alignment contribution to the likelihood score approached asymptotes when one note had too low or global tonicity. The lowered global tonicity scaling and new `GLOBAL_TONICITY_LIKELIHOOD_MAX_LN` parameter prevents asymptotic behavior where the model is overly confident that only one note is the tonic (nearly 100% tonicity), and the other notes have nearly 0 tonicity. This overconfidence feeds back into the algorithm the next iteration and causes a feedback loop.
+>
+> For this reason, the minor-major triadic dissonance gap is reduced, since it scales with how confident the model is, i.e., how much higher the "tonic" scores in tonicity than other notes, and reducing global tonicity reduces variance in tonicity scores. This can be partially compensated by decreasing `TONCITY_CONTEXT_TEMPERATURE_DISS` which increases the confidence of tonicity scores only for the dissonance calculation without affecting the tonicity scores used to feed back into the next iteration.
+
+```txt
+=============== SANITY METRICS ================
+
+        min - maj: 0.012137977573400405
+ min - maj scaled: 0.2702646430769437
+     tritone - p4: 0.06729656027850967
+          p4 - p5: 0.10898553770569636
+  lower intv. lim: 0.13439663775500937
+  P5 tonicity gap: 0.36668470251115715
+ targ. C conf maj: 0.42407330546463173
+ targ. C conf min: 0.40488250923758157
+ existing vs cand: 0.011043448871907446
+
+Benchmark time (201 8-note iters): 7.02643 seconds
+```
+
+### 7-note voicings
+
+> [!TIP] How to read the results
+>
+> - `0.00c, 400.0c`, etc... are the note pitches in cents relative to C4 (in this test). For each note, we have:
+>   - `ton`: contextual tonicity of this note after one iteration of update, smoothed over time.
+>   - `ton ctx`: the initial tonicity values from context (assigned to 0 since we assume no prior context). These values are normalized to sum to 1. If all 0, the model is initialized using the [sum-of-dyadic-tonicities heuristic](#first-step-major-vs-minor-triads).
+>   - `ton tgt`: the target values that `ton` is being smoothed towards in this iteration.
+>   - `diss raw`: the unscaled contribution of dissonance amongst all interpretation trees that assume this note as root
+>   - `diss ctx`: same as `diss raw` but scaled by the probability of hearing this note as root (weighted by `ton`)
+>
+> - `Diss` the final dissonance score, which is the sum of all `diss ctx`
+> - The 4 most likely interpretation trees (as judged by the algorithm) are shown below, where the top left node of the tree is the root node.
+
+```txt
+============  Graph diss: Cmaj13#11 (tertian lydian)  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1611, ton ctx: 0.0000, ton tgt: 0.1705, diss raw: 0.0748, diss ctx: 0.0748
+   400.00c: ton 0.1478, ton ctx: 0.0000, ton tgt: 0.1504, diss raw: 0.0724, diss ctx: 0.0718
+   700.00c: ton 0.1368, ton ctx: 0.0000, ton tgt: 0.1334, diss raw: 0.0605, diss ctx: 0.0606
+  1100.00c: ton 0.1324, ton ctx: 0.0000, ton tgt: 0.1270, diss raw: 0.0566, diss ctx: 0.0570
+  1400.00c: ton 0.1378, ton ctx: 0.0000, ton tgt: 0.1351, diss raw: 0.0529, diss ctx: 0.0530
+  1800.00c: ton 0.1340, ton ctx: 0.0000, ton tgt: 0.1296, diss raw: 0.0465, diss ctx: 0.0467
+  2100.00c: ton 0.1501, ton ctx: 0.0000, ton tgt: 0.1540, diss raw: 0.0470, diss ctx: 0.0467
+Diss: 0.4107
+2.5s: [
+    Dissonance {
+        dissonance: 0.4106800958248316,
+        tonicity_target: [
+            0.17051008893464303,
+            0.15043997138920753,
+            0.13344729429122867,
+            0.12696922247690193,
+            0.13506228978304868,
+            0.12957744307707025,
+            0.15399369004790817,
+        ],
+        tonicity_context: [
+            0.1610662730343112,
+            0.1477587041992881,
+            0.13678682445859125,
+            0.13240932817405227,
+            0.1378075940872702,
+            0.13402268776620052,
+            0.15014858828028635,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 1.1383 (complexity 0.3724):
+C4
+├── G4
+├── B4
+└── D5
+    ├── E4
+    ├── F#5
+    └── A5
+
+ -> likelihood 1.1304 (complexity 0.4305):
+C4
+├── E4
+├── G4
+│   ├── D5
+│   ├── F#5
+│   └── A5
+└── B4
+
+ -> likelihood 1.0836 (complexity 0.4062):
+E4
+├── C4
+│   ├── G4
+│   ├── D5
+│   └── A5
+├── B4
+└── F#5
+
+ -> likelihood 1.0677 (complexity 0.4090):
+C4
+├── E4
+│   ├── B4
+│   ├── F#5
+│   └── A5
+├── G4
+└── D5
+```
+
+In Cmaj13#11, the algorithm identifies C as the first tonic candidate, followed by A, E, D, G, F# and B being the least likely tonic. This mostly agrees with my intuition, except that perhaps D (tonicity 0.1378) and G (0.1368) should be swapped as I would expect to see this chord in the context of G major more than D major/minor. Note that the "tonicity" score doesn't identify quality/tonality, it merely scores the rootedness of inividual notes, so the next most likely tonics A and E are to be seen as the relative minors of C and G, rather than the relative major.
+
+The model is not as certain of the tonic as compared to say, the other simpler 4-adic chords in the test (this can be measured using the entropy of the tonicity scores). This is expected since this 7-adic chord can appear in many contexts.
+
+While cultural entrainment will first assume that the key is G major because it contains all 7 notes of G major, this model is identifying the tonic/root as in the definition of "how many other notes are being heard relative to this note", not in the definition of the cultural sense of "key". C having the highest tonicity score agrees with how I would instictively choose to hear most notes relative to C if I had no prior knowledge of the key. This is identified as the _lydian_ tonality in modern western music.
+
+The second highest likelihood tree is an interpretation that I would use myself (Cmaj7 with D triad upper structure), so seeing it up high in what the algorithm thinks is likely, out of 6972 other trees it is considering, is a good sign.
+
+```txt
+============  Graph diss: Cmin13 (tertian dorian)  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1515, ton ctx: 0.0000, ton tgt: 0.1561, diss raw: 0.0697, diss ctx: 0.0693
+   300.00c: ton 0.1552, ton ctx: 0.0000, ton tgt: 0.1615, diss raw: 0.0787, diss ctx: 0.0784
+   700.00c: ton 0.1330, ton ctx: 0.0000, ton tgt: 0.1278, diss raw: 0.0575, diss ctx: 0.0579
+  1000.00c: ton 0.1407, ton ctx: 0.0000, ton tgt: 0.1395, diss raw: 0.0606, diss ctx: 0.0605
+  1400.00c: ton 0.1312, ton ctx: 0.0000, ton tgt: 0.1252, diss raw: 0.0500, diss ctx: 0.0505
+  1700.00c: ton 0.1532, ton ctx: 0.0000, ton tgt: 0.1587, diss raw: 0.0543, diss ctx: 0.0539
+  2100.00c: ton 0.1351, ton ctx: 0.0000, ton tgt: 0.1312, diss raw: 0.0418, diss ctx: 0.0419
+Diss: 0.4125
+2.5s: [
+    Dissonance {
+        dissonance: 0.4124988755294595,
+        tonicity_target: [
+            0.15610054068858686,
+            0.16153141105799676,
+            0.12783959082987867,
+            0.139466206563926,
+            0.12515187025164054,
+            0.15869158387278784,
+            0.13121879673518316,
+        ],
+        tonicity_context: [
+            0.1514880294673888,
+            0.15519416731968377,
+            0.1330333416434903,
+            0.14071501631003436,
+            0.13124630393589354,
+            0.1532077273557646,
+            0.1351154139677446,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 1.1415 (complexity 0.4248):
+Eb4
+├── C4
+│   ├── G4
+│   ├── D5
+│   └── A5
+├── Bb4
+└── F5
+
+ -> likelihood 1.1192 (complexity 0.4348):
+Eb4
+├── G4
+├── Bb4
+│   ├── C4
+│   ├── F5
+│   └── A5
+└── D5
+
+ -> likelihood 1.0885 (complexity 0.4303):
+C4
+├── Eb4
+│   ├── Bb4
+│   ├── F5
+│   └── A5
+├── G4
+└── D5
+
+ -> likelihood 1.0855 (complexity 0.4686):
+Bb4
+├── C4
+├── G4
+│   ├── Eb4
+│   ├── D5
+│   └── A5
+└── F5
+```
+
+In the Cm13 voicing in thirds, the algorithm identifies Eb, F, and C in a close first, second, and third place for likely roots. This is followed by Bb as moderately likely, then the rest have relatively low tonicity.
+
+This voicing is assigned 0.0018 more dissonance than Cmaj13#11, which may not seem like a lot, but considering that the standard deviation for dissonance for 7-note chords is 0.065 for randomly generated sets of pitches (uniform distribution over log space hertz; see [Distributions of dissonance scores](#distributions-of-dissonance-scores)), and that the major-minor-third dyadic complexity difference is 0.05, this value is already sufficient, considering that we are not comparing random pitches, but structured chords that are expected to have much less variance in dissonance scores.
+
+I agree with the highest likelihood tree, except for its choice of root (I would rather see C as root instead). The algorithm being able to identify the stack of fifths in the tertian voicings is promising. The third most likely tree is also very sensible to me. Again, these are the top 4 trees out of 6972, so it will be rare to find agreeable interpretation trees if the likelihood algorithm's parameters are not tuned correctly.
+
+```txt
+
+============  Graph diss: Cm11b5b9b13 (tertian locrian)  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1374, ton ctx: 0.0000, ton tgt: 0.1347, diss raw: 0.0669, diss ctx: 0.0671
+   300.00c: ton 0.1473, ton ctx: 0.0000, ton tgt: 0.1497, diss raw: 0.0751, diss ctx: 0.0748
+   600.00c: ton 0.1470, ton ctx: 0.0000, ton tgt: 0.1489, diss raw: 0.0751, diss ctx: 0.0750
+  1000.00c: ton 0.1361, ton ctx: 0.0000, ton tgt: 0.1326, diss raw: 0.0583, diss ctx: 0.0586
+  1300.00c: ton 0.1374, ton ctx: 0.0000, ton tgt: 0.1344, diss raw: 0.0575, diss ctx: 0.0578
+  1700.00c: ton 0.1444, ton ctx: 0.0000, ton tgt: 0.1454, diss raw: 0.0513, diss ctx: 0.0511
+  2000.00c: ton 0.1504, ton ctx: 0.0000, ton tgt: 0.1543, diss raw: 0.0503, diss ctx: 0.0502
+Diss: 0.4346
+2.5s: [
+    Dissonance {
+        dissonance: 0.4346322369714205,
+        tonicity_target: [
+            0.13468621312165735,
+            0.14967456240377994,
+            0.148918367632673,
+            0.13260490097152786,
+            0.13440927681279385,
+            0.14537448446663281,
+            0.1543321945909347,
+        ],
+        tonicity_context: [
+            0.1373643018809243,
+            0.14728349129240942,
+            0.14696953913240363,
+            0.13614985655411022,
+            0.13740405728089675,
+            0.14443239067821753,
+            0.15039636318103827,
+        ],
+    },
+]
+Trees sorted by descending diss contribution:
+ -> contrib 0.0001 (complexity 0.5131, likelihood 1.0229):
+Eb4
+├── C4
+├── Gb4
+│   ├── Db5
+│   ├── F5
+│   └── Ab5
+└── Bb4
+
+ -> contrib 0.0001 (complexity 0.4965, likelihood 1.0320):
+Gb4
+├── Eb4
+├── Bb4
+│   ├── C4
+│   ├── F5
+│   └── Ab5
+└── Db5
+
+ -> contrib 0.0001 (complexity 0.4768, likelihood 1.0199):
+Gb4
+├── Eb4
+├── Bb4
+└── Db5
+    ├── C4
+    ├── F5
+    └── Ab5
+
+ -> contrib 0.0001 (complexity 0.5169, likelihood 0.9233):
+Eb4
+├── C4
+├── Gb4
+│   ├── Db5
+│   │   └── Ab5
+│   └── F5
+└── Bb4
+```
+
+Finally, just for fun, I fed a chord voicing I would never play myself, or don't recall hearing, into the algorithm, just to see if what I can make sense of it aurally and instictively agrees with the algorithm. This Cm11b5b9b13 voicing is the locrian scale organized in thirds from C.
+
+First, without looking at the results of the algorithm, my aural perception chooses to identify this as a weird rootless Ab dominant voicing with an added 4 (Db) for some reason. If I removed the Db, it would just be a Ab13(9) or something Bill Evans would play for a Cm7b5 or Ab7 chord. I would rank this as a big step up in perceived complexity from the previous two.
+
+Now looking at the algorithm, it assigned the highest tonicity to Ab with a score of 0.15, even though Ab5 is the highest note in the voicing, and there is a slight bias coded in the likelihood algorithm to prefer lower notes as root! After that, Eb and Gb were close, F in the middle, followed by Db and C a tie, and Bb in last place. I would agree this could also be used in the context of a rootless voicing for Ebm6 or the #4 half diminished of the key of Gb major.
+
+Of the three 7-adic chords so far, this scores the highest dissonance, which I agree with, scoring 0.0239 higher than Cmaj13#11, which is 0.36 standard deviations relative to the distribution of dissonance of random 7-note chords.
+
+### Effect of context
+
+Now I want to test if existing note tonciity context can have any impact on the algorithm's output.
+
+For the same 3 voicings above, I tried choosing 3 different "keys" as context: the obvious choice, the related (relative minor/major), and the "wrong" choice. To denote a "key", I set the relative tonicity of that note to twice as high as the other notes.
+
+Because of the smoothing of the tonicity context, the `ton` values will naturally be heavily skewed towards the context of the key, so the values we should be really looking at is `ton tgt`, which is the unsmoothed tonicity values that the algorithm outputs.
+
+#### Cmaj13#11 in the context of C, E, and F#
+
+```txt
+============  Graph diss: Cmaj13#11 with no context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1611, ton ctx: 0.0000, ton tgt: 0.1705, diss raw: 0.0748, diss ctx: 0.0748
+   400.00c: ton 0.1478, ton ctx: 0.0000, ton tgt: 0.1504, diss raw: 0.0724, diss ctx: 0.0718
+   700.00c: ton 0.1368, ton ctx: 0.0000, ton tgt: 0.1334, diss raw: 0.0605, diss ctx: 0.0606
+  1100.00c: ton 0.1324, ton ctx: 0.0000, ton tgt: 0.1270, diss raw: 0.0566, diss ctx: 0.0570
+  1400.00c: ton 0.1378, ton ctx: 0.0000, ton tgt: 0.1351, diss raw: 0.0529, diss ctx: 0.0530
+  1800.00c: ton 0.1340, ton ctx: 0.0000, ton tgt: 0.1296, diss raw: 0.0465, diss ctx: 0.0467
+  2100.00c: ton 0.1501, ton ctx: 0.0000, ton tgt: 0.1540, diss raw: 0.0470, diss ctx: 0.0467
+Diss: 0.4107
+2.5s: [
+    Dissonance {
+        dissonance: 0.4106800958248316,
+        tonicity_target: [
+            0.17051008893464303,
+            0.15043997138920753,
+            0.13344729429122867,
+            0.12696922247690193,
+            0.13506228978304868,
+            0.12957744307707025,
+            0.15399369004790817,
+        ],
+        tonicity_context: [
+            0.1610662730343112,
+            0.1477587041992881,
+            0.13678682445859125,
+            0.13240932817405227,
+            0.1378075940872702,
+            0.13402268776620052,
+            0.15014858828028635,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 1.1383 (complexity 0.3724):
+C4
+├── G4
+├── B4
+└── D5
+    ├── E4
+    ├── F#5
+    └── A5
+
+ -> likelihood 1.1304 (complexity 0.4305):
+C4
+├── E4
+├── G4
+│   ├── D5
+│   ├── F#5
+│   └── A5
+└── B4
+
+ -> likelihood 1.0836 (complexity 0.4062):
+E4
+├── C4
+│   ├── G4
+│   ├── D5
+│   └── A5
+├── B4
+└── F#5
+
+ -> likelihood 1.0677 (complexity 0.4090):
+C4
+├── E4
+│   ├── B4
+│   ├── F#5
+│   └── A5
+├── G4
+└── D5
+
+
+============  Graph diss: Cmaj13#11 with C context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.2953, ton ctx: 0.2000, ton tgt: 0.3196, diss raw: 0.1381, diss ctx: 0.2145
+   400.00c: ton 0.1233, ton ctx: 0.1000, ton tgt: 0.1224, diss raw: 0.0590, diss ctx: 0.0428
+   700.00c: ton 0.1152, ton ctx: 0.1000, ton tgt: 0.1100, diss raw: 0.0498, diss ctx: 0.0371
+  1100.00c: ton 0.1121, ton ctx: 0.1000, ton tgt: 0.1052, diss raw: 0.0468, diss ctx: 0.0354
+  1400.00c: ton 0.1159, ton ctx: 0.1000, ton tgt: 0.1110, diss raw: 0.0433, diss ctx: 0.0322
+  1800.00c: ton 0.1135, ton ctx: 0.1000, ton tgt: 0.1073, diss raw: 0.0384, diss ctx: 0.0288
+  2100.00c: ton 0.1247, ton ctx: 0.1000, ton tgt: 0.1246, diss raw: 0.0380, diss ctx: 0.0275
+Diss: 0.4183
+2.5s: [
+    Dissonance {
+        dissonance: 0.4182613180514423,
+        tonicity_target: [
+            0.3195704452117313,
+            0.12235629341951536,
+            0.11000728177445471,
+            0.10522785616115078,
+            0.11095436634387473,
+            0.10732210143270046,
+            0.12456165565657261,
+        ],
+        tonicity_context: [
+            0.29531273089824234,
+            0.12327809690608087,
+            0.11523491937819669,
+            0.11212197643231357,
+            0.11585177597730857,
+            0.1134860035293925,
+            0.12471449687846554,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 2.3942 (complexity 0.3724):
+C4
+├── G4
+├── B4
+└── D5
+    ├── E4
+    ├── F#5
+    └── A5
+
+ -> likelihood 2.3758 (complexity 0.4305):
+C4
+├── E4
+├── G4
+│   ├── D5
+│   ├── F#5
+│   └── A5
+└── B4
+
+ -> likelihood 2.2478 (complexity 0.4090):
+C4
+├── E4
+│   ├── B4
+│   ├── F#5
+│   └── A5
+├── G4
+└── D5
+
+ -> likelihood 2.2422 (complexity 0.3800):
+C4
+├── G4
+│   ├── E4
+│   ├── F#5
+│   └── A5
+├── B4
+└── D5
+
+
+============  Graph diss: Cmaj13#11 with E context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1370, ton ctx: 0.1000, ton tgt: 0.1434, diss raw: 0.0632, diss ctx: 0.0512
+   400.00c: ton 0.2575, ton ctx: 0.2000, ton tgt: 0.2615, diss raw: 0.1246, diss ctx: 0.1847
+   700.00c: ton 0.1199, ton ctx: 0.1000, ton tgt: 0.1172, diss raw: 0.0532, diss ctx: 0.0444
+  1100.00c: ton 0.1171, ton ctx: 0.1000, ton tgt: 0.1129, diss raw: 0.0503, diss ctx: 0.0424
+  1400.00c: ton 0.1205, ton ctx: 0.1000, ton tgt: 0.1181, diss raw: 0.0463, diss ctx: 0.0386
+  1800.00c: ton 0.1183, ton ctx: 0.1000, ton tgt: 0.1147, diss raw: 0.0412, diss ctx: 0.0346
+  2100.00c: ton 0.1297, ton ctx: 0.1000, ton tgt: 0.1323, diss raw: 0.0404, diss ctx: 0.0330
+Diss: 0.4290
+2.5s: [
+    Dissonance {
+        dissonance: 0.42902432502762405,
+        tonicity_target: [
+            0.14338778469618205,
+            0.261464182861242,
+            0.11717782934064233,
+            0.11290489748378715,
+            0.11811846540196741,
+            0.1146703448065773,
+            0.13227649540959843,
+        ],
+        tonicity_context: [
+            0.13697636061142293,
+            0.25746686946416353,
+            0.1199052516043434,
+            0.11712219896199008,
+            0.12051790815110384,
+            0.11827207286619104,
+            0.1297393383407851,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 2.2914 (complexity 0.4062):
+E4
+├── C4
+│   ├── G4
+│   ├── D5
+│   └── A5
+├── B4
+└── F#5
+
+ -> likelihood 2.0637 (complexity 0.4146):
+E4
+├── C4
+│   ├── G4
+│   └── D5
+│       └── A5
+├── B4
+└── F#5
+
+ -> likelihood 2.0611 (complexity 0.5019):
+E4
+├── C4
+├── G4
+│   ├── D5
+│   ├── F#5
+│   └── A5
+└── B4
+
+ -> likelihood 2.0453 (complexity 0.4128):
+E4
+├── C4
+│   ├── G4
+│   │   └── A5
+│   └── D5
+├── B4
+└── F#5
+
+
+============  Graph diss: Cmaj13#11 with F# context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1449, ton ctx: 0.1000, ton tgt: 0.1556, diss raw: 0.0683, diss ctx: 0.0606
+   400.00c: ton 0.1339, ton ctx: 0.1000, ton tgt: 0.1386, diss raw: 0.0667, diss ctx: 0.0595
+   700.00c: ton 0.1242, ton ctx: 0.1000, ton tgt: 0.1238, diss raw: 0.0561, diss ctx: 0.0508
+  1100.00c: ton 0.1203, ton ctx: 0.1000, ton tgt: 0.1178, diss raw: 0.0525, diss ctx: 0.0481
+  1400.00c: ton 0.1251, ton ctx: 0.1000, ton tgt: 0.1251, diss raw: 0.0490, diss ctx: 0.0444
+  1800.00c: ton 0.2147, ton ctx: 0.2000, ton tgt: 0.1958, diss raw: 0.0704, diss ctx: 0.0998
+  2100.00c: ton 0.1368, ton ctx: 0.1000, ton tgt: 0.1432, diss raw: 0.0437, diss ctx: 0.0389
+Diss: 0.4021
+2.5s: [
+    Dissonance {
+        dissonance: 0.4021356166590806,
+        tonicity_target: [
+            0.15562932371374713,
+            0.13864037682523703,
+            0.12380036760540818,
+            0.11782193587320959,
+            0.12514485784587187,
+            0.19578675729285738,
+            0.14317638084367082,
+        ],
+        tonicity_context: [
+            0.14494953889991966,
+            0.13388427151143703,
+            0.12421865355744773,
+            0.12032477207587648,
+            0.12509434903813688,
+            0.21468974619274633,
+            0.13683866872443598,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 1.5115 (complexity 0.3776):
+F#5
+├── C4
+│   ├── G4
+│   ├── B4
+│   └── D5
+├── E4
+└── A5
+
+ -> likelihood 1.4853 (complexity 0.3612):
+F#5
+├── C4
+│   ├── G4
+│   ├── B4
+│   └── A5
+├── E4
+└── D5
+
+ -> likelihood 1.4422 (complexity 0.4502):
+F#5
+├── C4
+├── G4
+└── D5
+    ├── E4
+    ├── B4
+    └── A5
+
+ -> likelihood 1.4173 (complexity 0.3649):
+F#5
+├── C4
+├── E4
+└── G4
+    ├── B4
+    ├── D5
+    └── A5
+```
+
+Compared to the context-free heuristic initialization from the previous test, the context of the key of C greatly increased the perception of C as root in `ton tgt`. C now has a target tonicity of 0.3196, up from 0.1705 &mdash; an increase of 87%. For reference, uniform tonicity is $1 slash 7 = 0.1429$. The top 4 likelihood interpretation trees all have C as the root, which is expected since global tonicity context affects likelihood.
+
+Similarly, the context of E increased the perception of E as root from 0.1584 to 0.2615, this time an increase of 65%. This increase is not as much as C, since the algorithm has shown a natural bias towards the root of C in the context-free test. Another interesting thing to note is that the tonicity of A is higher in the context of E than in the context of C.
+
+Finally, the context of F# applied to Cmaj13#11 yielded the least increase in tonicity: from 0.1296 to 0.1958, which is 51%. After the third iteration, the algorithm is to identify that it is highly improbable that the key is still F#:
+
+```txt
+============  Graph diss: Cmaj13#11 with F# context  =====================
+
+Iteration 1/5
+     0.00c: ton 0.1449, ton ctx: 0.1000, ton tgt: 0.1556, diss raw:    NaN, diss ctx:    NaN
+   400.00c: ton 0.1339, ton ctx: 0.1000, ton tgt: 0.1386, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1242, ton ctx: 0.1000, ton tgt: 0.1238, diss raw:    NaN, diss ctx:    NaN
+  1100.00c: ton 0.1203, ton ctx: 0.1000, ton tgt: 0.1178, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1251, ton ctx: 0.1000, ton tgt: 0.1251, diss raw:    NaN, diss ctx:    NaN
+  1800.00c: ton 0.2147, ton ctx: 0.2000, ton tgt: 0.1958, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1368, ton ctx: 0.1000, ton tgt: 0.1432, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4021
+
+Iteration 2/5
+     0.00c: ton 0.1652, ton ctx: 0.1449, ton tgt: 0.1760, diss raw:    NaN, diss ctx:    NaN
+   400.00c: ton 0.1381, ton ctx: 0.1339, ton tgt: 0.1404, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1200, ton ctx: 0.1242, ton tgt: 0.1177, diss raw:    NaN, diss ctx:    NaN
+  1100.00c: ton 0.1139, ton ctx: 0.1203, ton tgt: 0.1104, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1212, ton ctx: 0.1251, ton tgt: 0.1192, diss raw:    NaN, diss ctx:    NaN
+  1800.00c: ton 0.1990, ton ctx: 0.2147, ton tgt: 0.1906, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1427, ton ctx: 0.1368, ton tgt: 0.1458, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4037
+
+Iteration 3/5
+     0.00c: ton 0.1977, ton ctx: 0.1652, ton tgt: 0.2151, diss raw:    NaN, diss ctx:    NaN
+   400.00c: ton 0.1403, ton ctx: 0.1381, ton tgt: 0.1415, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1150, ton ctx: 0.1200, ton tgt: 0.1123, diss raw:    NaN, diss ctx:    NaN
+  1100.00c: ton 0.1080, ton ctx: 0.1139, ton tgt: 0.1048, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1164, ton ctx: 0.1212, ton tgt: 0.1138, diss raw:    NaN, diss ctx:    NaN
+  1800.00c: ton 0.1774, ton ctx: 0.1990, ton tgt: 0.1659, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1453, ton ctx: 0.1427, ton tgt: 0.1466, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4068
+
+Iteration 4/5
+     0.00c: ton 0.2458, ton ctx: 0.1977, ton tgt: 0.2716, diss raw:    NaN, diss ctx:    NaN
+   400.00c: ton 0.1389, ton ctx: 0.1403, ton tgt: 0.1382, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1086, ton ctx: 0.1150, ton tgt: 0.1052, diss raw:    NaN, diss ctx:    NaN
+  1100.00c: ton 0.1017, ton ctx: 0.1080, ton tgt: 0.0984, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1099, ton ctx: 0.1164, ton tgt: 0.1065, diss raw:    NaN, diss ctx:    NaN
+  1800.00c: ton 0.1522, ton ctx: 0.1774, ton tgt: 0.1387, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1428, ton ctx: 0.1453, ton tgt: 0.1414, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4116
+
+Iteration 5/5
+     0.00c: ton 0.2851, ton ctx: 0.2458, ton tgt: 0.3061, diss raw:    NaN, diss ctx:    NaN
+   400.00c: ton 0.1376, ton ctx: 0.1389, ton tgt: 0.1369, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1044, ton ctx: 0.1086, ton tgt: 0.1021, diss raw:    NaN, diss ctx:    NaN
+  1100.00c: ton 0.0980, ton ctx: 0.1017, ton tgt: 0.0960, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1054, ton ctx: 0.1099, ton tgt: 0.1030, diss raw:    NaN, diss ctx:    NaN
+  1800.00c: ton 0.1306, ton ctx: 0.1522, ton tgt: 0.1190, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1390, ton ctx: 0.1428, ton tgt: 0.1369, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4159
+
+```
+
+Similar tests have been done for Cm13 with roots C (expected), Eb (relative), and A (wildcard):
+
+```txt
+============  Graph diss: Cmin13 with no context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.2687, ton ctx: 0.2000, ton tgt: 0.2787, diss raw: 0.1228, diss ctx: 0.1847
+   300.00c: ton 0.1319, ton ctx: 0.1000, ton tgt: 0.1357, diss raw: 0.0663, diss ctx: 0.0522
+   700.00c: ton 0.1159, ton ctx: 0.1000, ton tgt: 0.1110, diss raw: 0.0498, diss ctx: 0.0408
+  1000.00c: ton 0.1211, ton ctx: 0.1000, ton tgt: 0.1191, diss raw: 0.0516, diss ctx: 0.0416
+  1400.00c: ton 0.1144, ton ctx: 0.1000, ton tgt: 0.1087, diss raw: 0.0432, diss ctx: 0.0356
+  1700.00c: ton 0.1304, ton ctx: 0.1000, ton tgt: 0.1333, diss raw: 0.0454, diss ctx: 0.0358
+  2100.00c: ton 0.1175, ton ctx: 0.1000, ton tgt: 0.1135, diss raw: 0.0360, diss ctx: 0.0293
+Diss: 0.4200
+2.5s: [
+    Dissonance {
+        dissonance: 0.4200195039557328,
+        tonicity_target: [
+            0.2786830556993533,
+            0.13566726936887682,
+            0.11103331161766217,
+            0.11905318744640023,
+            0.10872970627517889,
+            0.13329465359007964,
+            0.11353881600245201,
+        ],
+        tonicity_context: [
+            0.26868189258080083,
+            0.13194782252521006,
+            0.11590319473617827,
+            0.12112671277115625,
+            0.1144028069111181,
+            0.13040248671512056,
+            0.11753508376041588,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 2.3013 (complexity 0.4302):
+C4
+├── Eb4
+│   ├── Bb4
+│   ├── F5
+│   └── A5
+├── G4
+└── D5
+
+ -> likelihood 2.2048 (complexity 0.4154):
+C4
+├── Eb4
+│   ├── Bb4
+│   ├── D5
+│   └── F5
+├── G4
+└── A5
+
+ -> likelihood 2.0830 (complexity 0.4189):
+C4
+├── Eb4
+├── G4
+└── D5
+    ├── Bb4
+    ├── F5
+    └── A5
+
+ -> likelihood 2.0745 (complexity 0.4325):
+C4
+├── Eb4
+│   ├── Bb4
+│   │   └── F5
+│   └── A5
+├── G4
+└── D5
+
+============  Graph diss: Cmin13 with C context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.2687, ton ctx: 0.2000, ton tgt: 0.2787, diss raw: 0.1228, diss ctx: 0.1847
+   300.00c: ton 0.1319, ton ctx: 0.1000, ton tgt: 0.1357, diss raw: 0.0663, diss ctx: 0.0522
+   700.00c: ton 0.1159, ton ctx: 0.1000, ton tgt: 0.1110, diss raw: 0.0498, diss ctx: 0.0408
+  1000.00c: ton 0.1211, ton ctx: 0.1000, ton tgt: 0.1191, diss raw: 0.0516, diss ctx: 0.0416
+  1400.00c: ton 0.1144, ton ctx: 0.1000, ton tgt: 0.1087, diss raw: 0.0432, diss ctx: 0.0356
+  1700.00c: ton 0.1304, ton ctx: 0.1000, ton tgt: 0.1333, diss raw: 0.0454, diss ctx: 0.0358
+  2100.00c: ton 0.1175, ton ctx: 0.1000, ton tgt: 0.1135, diss raw: 0.0360, diss ctx: 0.0293
+Diss: 0.4200
+2.5s: [
+    Dissonance {
+        dissonance: 0.4200195039557328,
+        tonicity_target: [
+            0.2786830556993533,
+            0.13566726936887682,
+            0.11103331161766217,
+            0.11905318744640023,
+            0.10872970627517889,
+            0.13329465359007964,
+            0.11353881600245201,
+        ],
+        tonicity_context: [
+            0.26868189258080083,
+            0.13194782252521006,
+            0.11590319473617827,
+            0.12112671277115625,
+            0.1144028069111181,
+            0.13040248671512056,
+            0.11753508376041588,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 2.3013 (complexity 0.4302):
+C4
+├── Eb4
+│   ├── Bb4
+│   ├── F5
+│   └── A5
+├── G4
+└── D5
+
+ -> likelihood 2.2048 (complexity 0.4154):
+C4
+├── Eb4
+│   ├── Bb4
+│   ├── D5
+│   └── F5
+├── G4
+└── A5
+
+ -> likelihood 2.0830 (complexity 0.4189):
+C4
+├── Eb4
+├── G4
+└── D5
+    ├── Bb4
+    ├── F5
+    └── A5
+
+ -> likelihood 2.0745 (complexity 0.4325):
+C4
+├── Eb4
+│   ├── Bb4
+│   │   └── F5
+│   └── A5
+├── G4
+└── D5
+
+
+============  Graph diss: Cmin13 with Eb context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1273, ton ctx: 0.1000, ton tgt: 0.1286, diss raw: 0.0577, diss ctx: 0.0443
+   300.00c: ton 0.2788, ton ctx: 0.2000, ton tgt: 0.2942, diss raw: 0.1418, diss ctx: 0.2161
+   700.00c: ton 0.1144, ton ctx: 0.1000, ton tgt: 0.1087, diss raw: 0.0489, diss ctx: 0.0390
+  1000.00c: ton 0.1205, ton ctx: 0.1000, ton tgt: 0.1181, diss raw: 0.0514, diss ctx: 0.0401
+  1400.00c: ton 0.1131, ton ctx: 0.1000, ton tgt: 0.1067, diss raw: 0.0426, diss ctx: 0.0342
+  1700.00c: ton 0.1297, ton ctx: 0.1000, ton tgt: 0.1322, diss raw: 0.0453, diss ctx: 0.0346
+  2100.00c: ton 0.1162, ton ctx: 0.1000, ton tgt: 0.1115, diss raw: 0.0355, diss ctx: 0.0281
+Diss: 0.4362
+2.5s: [
+    Dissonance {
+        dissonance: 0.4362337172015992,
+        tonicity_target: [
+            0.12856377639645253,
+            0.2941859626917517,
+            0.10874937635193714,
+            0.11810250286147113,
+            0.10671220597712781,
+            0.13219852031374138,
+            0.1114876554075247,
+        ],
+        tonicity_context: [
+            0.12732116440167177,
+            0.2787792701460738,
+            0.1144156184561954,
+            0.12050751140432708,
+            0.11308876546989254,
+            0.12968855147971733,
+            0.11619911864212219,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 2.4048 (complexity 0.4248):
+Eb4
+├── C4
+│   ├── G4
+│   ├── D5
+│   └── A5
+├── Bb4
+└── F5
+
+ -> likelihood 2.3543 (complexity 0.4348):
+Eb4
+├── G4
+├── Bb4
+│   ├── C4
+│   ├── F5
+│   └── A5
+└── D5
+
+ -> likelihood 2.2157 (complexity 0.4557):
+Eb4
+├── C4
+├── Bb4
+│   ├── G4
+│   ├── F5
+│   └── A5
+└── D5
+
+ -> likelihood 2.2013 (complexity 0.4489):
+Eb4
+├── G4
+├── Bb4
+└── D5
+    ├── C4
+    ├── F5
+    └── A5
+
+
+============  Graph diss: Cmin13 with A context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1371, ton ctx: 0.1000, ton tgt: 0.1435, diss raw: 0.0641, diss ctx: 0.0568
+   300.00c: ton 0.1400, ton ctx: 0.1000, ton tgt: 0.1480, diss raw: 0.0720, diss ctx: 0.0637
+   700.00c: ton 0.1209, ton ctx: 0.1000, ton tgt: 0.1187, diss raw: 0.0533, diss ctx: 0.0486
+  1000.00c: ton 0.1275, ton ctx: 0.1000, ton tgt: 0.1288, diss raw: 0.0560, diss ctx: 0.0502
+  1400.00c: ton 0.1192, ton ctx: 0.1000, ton tgt: 0.1161, diss raw: 0.0463, diss ctx: 0.0425
+  1700.00c: ton 0.1385, ton ctx: 0.1000, ton tgt: 0.1458, diss raw: 0.0498, diss ctx: 0.0441
+  2100.00c: ton 0.2169, ton ctx: 0.2000, ton tgt: 0.1992, diss raw: 0.0634, diss ctx: 0.0900
+Diss: 0.3959
+2.5s: [
+    Dissonance {
+        dissonance: 0.3959484373831218,
+        tonicity_target: [
+            0.14353592251710454,
+            0.14795961380370812,
+            0.11866017810292628,
+            0.12878633373257203,
+            0.11609699613619981,
+            0.14578645231225407,
+            0.1991745033952327,
+        ],
+        tonicity_context: [
+            0.1370728459680263,
+            0.13995409147733298,
+            0.12087073731250997,
+            0.12746612079300101,
+            0.11920128163563411,
+            0.1385386645448045,
+            0.2168962582686912,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 1.4833 (complexity 0.3332):
+A5
+├── C4
+│   ├── G4
+│   ├── Bb4
+│   └── D5
+├── Eb4
+└── F5
+
+ -> likelihood 1.4828 (complexity 0.2792):
+A5
+├── C4
+├── Eb4
+│   ├── Bb4
+│   ├── D5
+│   └── F5
+└── G4
+
+ -> likelihood 1.4764 (complexity 0.3550):
+A5
+├── C4
+├── Eb4
+│   ├── G4
+│   ├── Bb4
+│   └── D5
+└── F5
+
+ -> likelihood 1.4047 (complexity 0.3692):
+A5
+├── Eb4
+├── G4
+└── Bb4
+    ├── C4
+    ├── D5
+    └── F5
+```
+
+It is especially interesting that this particular voicing of Cm13 has two stable keys. Both C and Eb are equally possible keys that this voicing can live in, so the algorithm almost equally stabilizes both keys (with a slight preference for Eb). The context of the wildcard key A is again quickly rejected. It's also interesting to note that the perceived dissonance is lower for the context of C compared to Eb, even though the likelihood of the root Eb is slighly higher.
+
+Finally, for Cm11b5b9b13 with roots Ab (expected domaintn), Eb (subdominant minor), and C (wildcard), we see the same pattern:
+
+```txt
+============  Graph diss: Cm11b5b9b13 with no context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1203, ton ctx: 0.1000, ton tgt: 0.1178, diss raw: 0.0585, diss ctx: 0.0487
+   300.00c: ton 0.1284, ton ctx: 0.1000, ton tgt: 0.1302, diss raw: 0.0653, diss ctx: 0.0533
+   600.00c: ton 0.1276, ton ctx: 0.1000, ton tgt: 0.1289, diss raw: 0.0650, diss ctx: 0.0531
+  1000.00c: ton 0.1190, ton ctx: 0.1000, ton tgt: 0.1159, diss raw: 0.0509, diss ctx: 0.0425
+  1300.00c: ton 0.1197, ton ctx: 0.1000, ton tgt: 0.1169, diss raw: 0.0500, diss ctx: 0.0417
+  1700.00c: ton 0.1260, ton ctx: 0.1000, ton tgt: 0.1265, diss raw: 0.0446, diss ctx: 0.0366
+  2000.00c: ton 0.2590, ton ctx: 0.2000, ton tgt: 0.2638, diss raw: 0.0857, diss ctx: 0.1274
+Diss: 0.4033
+2.5s: [
+    Dissonance {
+        dissonance: 0.4032973304934846,
+        tonicity_target: [
+            0.11781704377565472,
+            0.1302038795933526,
+            0.12893747214857532,
+            0.11585221311836284,
+            0.11689462887936515,
+            0.1265255565785356,
+            0.26376920590615327,
+        ],
+        tonicity_context: [
+            0.12032158574726606,
+            0.12838939897427423,
+            0.12756456050187293,
+            0.11904184917861937,
+            0.11972079703813973,
+            0.12599362789044755,
+            0.2589681806693801,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 2.1619 (complexity 0.3396):
+Ab5
+├── C4
+├── Eb4
+└── Bb4
+    ├── Gb4
+    ├── Db5
+    └── F5
+
+ -> likelihood 2.0730 (complexity 0.3140):
+Ab5
+├── C4
+├── Eb4
+│   ├── Gb4
+│   ├── Db5
+│   └── F5
+└── Bb4
+
+ -> likelihood 2.0612 (complexity 0.3312):
+Ab5
+├── C4
+├── Eb4
+└── Bb4
+    ├── Gb4
+    │   └── Db5
+    └── F5
+
+ -> likelihood 2.0578 (complexity 0.3428):
+Ab5
+├── Eb4
+├── Gb4
+└── Bb4
+    ├── C4
+    ├── Db5
+    └── F5
+
+
+============  Graph diss: Cm11b5b9b13 with Ab context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1203, ton ctx: 0.1000, ton tgt: 0.1178, diss raw: 0.0585, diss ctx: 0.0487
+   300.00c: ton 0.1284, ton ctx: 0.1000, ton tgt: 0.1302, diss raw: 0.0653, diss ctx: 0.0533
+   600.00c: ton 0.1276, ton ctx: 0.1000, ton tgt: 0.1289, diss raw: 0.0650, diss ctx: 0.0531
+  1000.00c: ton 0.1190, ton ctx: 0.1000, ton tgt: 0.1159, diss raw: 0.0509, diss ctx: 0.0425
+  1300.00c: ton 0.1197, ton ctx: 0.1000, ton tgt: 0.1169, diss raw: 0.0500, diss ctx: 0.0417
+  1700.00c: ton 0.1260, ton ctx: 0.1000, ton tgt: 0.1265, diss raw: 0.0446, diss ctx: 0.0366
+  2000.00c: ton 0.2590, ton ctx: 0.2000, ton tgt: 0.2638, diss raw: 0.0857, diss ctx: 0.1274
+Diss: 0.4033
+2.5s: [
+    Dissonance {
+        dissonance: 0.4032973304934846,
+        tonicity_target: [
+            0.11781704377565472,
+            0.1302038795933526,
+            0.12893747214857532,
+            0.11585221311836284,
+            0.11689462887936515,
+            0.1265255565785356,
+            0.26376920590615327,
+        ],
+        tonicity_context: [
+            0.12032158574726606,
+            0.12838939897427423,
+            0.12756456050187293,
+            0.11904184917861937,
+            0.11972079703813973,
+            0.12599362789044755,
+            0.2589681806693801,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 2.1619 (complexity 0.3396):
+Ab5
+├── C4
+├── Eb4
+└── Bb4
+    ├── Gb4
+    ├── Db5
+    └── F5
+
+ -> likelihood 2.0730 (complexity 0.3140):
+Ab5
+├── C4
+├── Eb4
+│   ├── Gb4
+│   ├── Db5
+│   └── F5
+└── Bb4
+
+ -> likelihood 2.0612 (complexity 0.3312):
+Ab5
+├── C4
+├── Eb4
+└── Bb4
+    ├── Gb4
+    │   └── Db5
+    └── F5
+
+ -> likelihood 2.0578 (complexity 0.3428):
+Ab5
+├── Eb4
+├── Gb4
+└── Bb4
+    ├── C4
+    ├── Db5
+    └── F5
+
+
+============  Graph diss: Cm11b5b9b13 with Eb context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1199, ton ctx: 0.1000, ton tgt: 0.1172, diss raw: 0.0584, diss ctx: 0.0489
+   300.00c: ton 0.2571, ton ctx: 0.2000, ton tgt: 0.2609, diss raw: 0.1295, diss ctx: 0.1921
+   600.00c: ton 0.1274, ton ctx: 0.1000, ton tgt: 0.1288, diss raw: 0.0651, diss ctx: 0.0535
+  1000.00c: ton 0.1198, ton ctx: 0.1000, ton tgt: 0.1171, diss raw: 0.0515, diss ctx: 0.0431
+  1300.00c: ton 0.1200, ton ctx: 0.1000, ton tgt: 0.1172, diss raw: 0.0502, diss ctx: 0.0420
+  1700.00c: ton 0.1261, ton ctx: 0.1000, ton tgt: 0.1267, diss raw: 0.0448, diss ctx: 0.0369
+  2000.00c: ton 0.1296, ton ctx: 0.1000, ton tgt: 0.1321, diss raw: 0.0431, diss ctx: 0.0353
+Diss: 0.4518
+2.5s: [
+    Dissonance {
+        dissonance: 0.45180446473714037,
+        tonicity_target: [
+            0.11718028295585448,
+            0.2608952295980413,
+            0.12875851095070154,
+            0.11709117576217763,
+            0.11724812177722325,
+            0.1267125433812141,
+            0.1321141355747902,
+        ],
+        tonicity_context: [
+            0.11990684969683033,
+            0.2570962979372645,
+            0.12744799921531197,
+            0.11984881226044641,
+            0.11995103458378602,
+            0.12611541642644858,
+            0.12963358987991225,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 2.1629 (complexity 0.5131):
+Eb4
+├── C4
+├── Gb4
+│   ├── Db5
+│   ├── F5
+│   └── Ab5
+└── Bb4
+
+ -> likelihood 2.0880 (complexity 0.4442):
+Eb4
+├── C4
+│   ├── Gb4
+│   ├── Db5
+│   └── Ab5
+├── Bb4
+└── F5
+
+ -> likelihood 1.9767 (complexity 0.4908):
+Eb4
+├── C4
+├── Gb4
+└── Bb4
+    ├── Db5
+    ├── F5
+    └── Ab5
+
+ -> likelihood 1.9658 (complexity 0.4221):
+Eb4
+├── C4
+├── Bb4
+└── F5
+    ├── Gb4
+    ├── Db5
+    └── Ab5
+
+
+============  Graph diss: Cm11b5b9b13 with C context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.2299, ton ctx: 0.2000, ton tgt: 0.2192, diss raw: 0.1084, diss ctx: 0.1558
+   300.00c: ton 0.1314, ton ctx: 0.1000, ton tgt: 0.1349, diss raw: 0.0679, diss ctx: 0.0592
+   600.00c: ton 0.1307, ton ctx: 0.1000, ton tgt: 0.1337, diss raw: 0.0675, diss ctx: 0.0590
+  1000.00c: ton 0.1223, ton ctx: 0.1000, ton tgt: 0.1208, diss raw: 0.0530, diss ctx: 0.0471
+  1300.00c: ton 0.1233, ton ctx: 0.1000, ton tgt: 0.1224, diss raw: 0.0523, diss ctx: 0.0464
+  1700.00c: ton 0.1289, ton ctx: 0.1000, ton tgt: 0.1310, diss raw: 0.0461, diss ctx: 0.0403
+  2000.00c: ton 0.1335, ton ctx: 0.1000, ton tgt: 0.1381, diss raw: 0.0450, diss ctx: 0.0392
+Diss: 0.4470
+2.5s: [
+    Dissonance {
+        dissonance: 0.44700510860341214,
+        tonicity_target: [
+            0.21920410428982454,
+            0.13485036944613094,
+            0.13368375490363213,
+            0.12082277199636758,
+            0.12240207428799665,
+            0.13096999695694417,
+            0.13806692811910296,
+        ],
+        tonicity_context: [
+            0.22994196916753096,
+            0.1314157579932454,
+            0.13065591678962304,
+            0.12227928134061625,
+            0.12330791497275374,
+            0.12888838773059522,
+            0.1335107720056354,
+        ],
+    },
+]
+Top 4 likelihood trees:
+ -> likelihood 1.5751 (complexity 0.4967):
+C4
+├── Eb4
+│   ├── Bb4
+│   ├── F5
+│   └── Ab5
+├── Gb4
+└── Db5
+
+ -> likelihood 1.5695 (complexity 0.5000):
+C4
+├── Eb4
+├── Gb4
+└── Db5
+    ├── Bb4
+    ├── F5
+    └── Ab5
+
+ -> likelihood 1.5558 (complexity 0.4694):
+C4
+├── Eb4
+│   ├── Bb4
+│   ├── Db5
+│   └── F5
+├── Gb4
+└── Ab5
+
+ -> likelihood 1.5485 (complexity 0.4726):
+C4
+├── Eb4
+├── Gb4
+│   ├── Bb4
+│   ├── Db5
+│   └── F5
+└── Ab5
+```
+
+> [!NOTE]
+>
+> To test this model thoroughly and with real-time constraints (where a maximum of 800 trees are scanned for tonicity updates and 4000 trees for detemperament candidate selection), I highly recommend playing around with the [visualizer](https://github.com/euwbah/n-edo-lattice-visualiser) &mdash; for 12EDO, it works with MIDI input through the browser. It takes a bit of setup, but [I will be happy to assist if necessary](#thanks-for-reading).
 
 ## Appendix
 
 ### Distributions of dissonance scores
 
-I generated 1000 random chords for 2-8 note chors each, with notes uniformly distributed in the range C3 to C6.
+I generated 1000 random 2-note to 8-note chords each, with notes uniformly distributed in the range C3 to C6.
 
 ```txt
 Dissonance stats for 2 random notes in C3 - C6:
@@ -1782,7 +3024,7 @@ Dissonance stats for 8 random notes in C3 - C6:
 6309 .. 6696 [   4 ]: ∎
 ```
 
-Judging from the above janky histograms and stats, this algorithm's dissonance scores seem to be slightly fat-tailed (leptokurtic), but generally well-behaved. Most random chords fall within the 0.3 to 0.6 dissonance range, with very few chords being extremely consonant (<0.2) or extremely dissonant (>0.8). The mean hovers around 0.43-0.44 for all chord sizes, but the standard deviation decreases as there are more notes (which is expected since the notes of larger chors are chosen with uniformly random pitch in the same range as smaller chords).
+Judging from the above janky histograms and stats, this algorithm's dissonance scores seem to be slightly fat-tailed (leptokurtic), but generally well-behaved. Most random chords fall within the 0.3 to 0.6 dissonance range, with very few chords being extremely consonant (<0.2) or extremely dissonant (>0.8). The mean hovers around 0.43-0.44 for all chord sizes, but the standard deviation decreases as there are more notes, which is expected since the more randomly chosen notes there are, the higher probability that the final chord is unstructured and dissonant.
 
 ## Thanks for reading!
 
