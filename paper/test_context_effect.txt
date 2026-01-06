@@ -1,0 +1,564 @@
+
+running 1 test
+
+============  Graph diss: Cmaj13#11 with no context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1611, ton ctx: 0.0000, ton tgt: 0.1705, diss raw:    NaN, diss ctx:    NaN
+   400.00c: ton 0.1478, ton ctx: 0.0000, ton tgt: 0.1504, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1368, ton ctx: 0.0000, ton tgt: 0.1334, diss raw:    NaN, diss ctx:    NaN
+  1100.00c: ton 0.1324, ton ctx: 0.0000, ton tgt: 0.1270, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1378, ton ctx: 0.0000, ton tgt: 0.1351, diss raw:    NaN, diss ctx:    NaN
+  1800.00c: ton 0.1340, ton ctx: 0.0000, ton tgt: 0.1296, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1501, ton ctx: 0.0000, ton tgt: 0.1540, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4107
+2.5s: [
+    Dissonance {
+        dissonance: 0.4106800958248316,
+        tonicity_target: [
+            0.17051008893464303,
+            0.15043997138920753,
+            0.13344729429122867,
+            0.12696922247690193,
+            0.13506228978304868,
+            0.12957744307707025,
+            0.15399369004790817,
+        ],
+        tonicity_context: [
+            0.1610662730343112,
+            0.1477587041992881,
+            0.13678682445859125,
+            0.13240932817405227,
+            0.1378075940872702,
+            0.13402268776620052,
+            0.15014858828028635,
+        ],
+    },
+]
+
+============  Graph diss: Cmaj13#11 with C context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.2953, ton ctx: 0.2000, ton tgt: 0.3196, diss raw:    NaN, diss ctx:    NaN
+   400.00c: ton 0.1233, ton ctx: 0.1000, ton tgt: 0.1224, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1152, ton ctx: 0.1000, ton tgt: 0.1100, diss raw:    NaN, diss ctx:    NaN
+  1100.00c: ton 0.1121, ton ctx: 0.1000, ton tgt: 0.1052, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1159, ton ctx: 0.1000, ton tgt: 0.1110, diss raw:    NaN, diss ctx:    NaN
+  1800.00c: ton 0.1135, ton ctx: 0.1000, ton tgt: 0.1073, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1247, ton ctx: 0.1000, ton tgt: 0.1246, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4183
+2.5s: [
+    Dissonance {
+        dissonance: 0.4182613180514423,
+        tonicity_target: [
+            0.3195704452117313,
+            0.12235629341951536,
+            0.11000728177445471,
+            0.10522785616115078,
+            0.11095436634387473,
+            0.10732210143270046,
+            0.12456165565657261,
+        ],
+        tonicity_context: [
+            0.29531273089824234,
+            0.12327809690608087,
+            0.11523491937819669,
+            0.11212197643231357,
+            0.11585177597730857,
+            0.1134860035293925,
+            0.12471449687846554,
+        ],
+    },
+]
+
+============  Graph diss: Cmaj13#11 with E context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1370, ton ctx: 0.1000, ton tgt: 0.1434, diss raw:    NaN, diss ctx:    NaN
+   400.00c: ton 0.2575, ton ctx: 0.2000, ton tgt: 0.2615, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1199, ton ctx: 0.1000, ton tgt: 0.1172, diss raw:    NaN, diss ctx:    NaN
+  1100.00c: ton 0.1171, ton ctx: 0.1000, ton tgt: 0.1129, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1205, ton ctx: 0.1000, ton tgt: 0.1181, diss raw:    NaN, diss ctx:    NaN
+  1800.00c: ton 0.1183, ton ctx: 0.1000, ton tgt: 0.1147, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1297, ton ctx: 0.1000, ton tgt: 0.1323, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4290
+2.5s: [
+    Dissonance {
+        dissonance: 0.42902432502762405,
+        tonicity_target: [
+            0.14338778469618205,
+            0.261464182861242,
+            0.11717782934064233,
+            0.11290489748378715,
+            0.11811846540196741,
+            0.1146703448065773,
+            0.13227649540959843,
+        ],
+        tonicity_context: [
+            0.13697636061142293,
+            0.25746686946416353,
+            0.1199052516043434,
+            0.11712219896199008,
+            0.12051790815110384,
+            0.11827207286619104,
+            0.1297393383407851,
+        ],
+    },
+]
+
+============  Graph diss: Cmaj13#11 with F# context  =====================
+
+Iteration 1/5
+     0.00c: ton 0.1449, ton ctx: 0.1000, ton tgt: 0.1556, diss raw:    NaN, diss ctx:    NaN
+   400.00c: ton 0.1339, ton ctx: 0.1000, ton tgt: 0.1386, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1242, ton ctx: 0.1000, ton tgt: 0.1238, diss raw:    NaN, diss ctx:    NaN
+  1100.00c: ton 0.1203, ton ctx: 0.1000, ton tgt: 0.1178, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1251, ton ctx: 0.1000, ton tgt: 0.1251, diss raw:    NaN, diss ctx:    NaN
+  1800.00c: ton 0.2147, ton ctx: 0.2000, ton tgt: 0.1958, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1368, ton ctx: 0.1000, ton tgt: 0.1432, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4021
+2.5s: [
+    Dissonance {
+        dissonance: 0.4021356166590806,
+        tonicity_target: [
+            0.15562932371374713,
+            0.13864037682523703,
+            0.12380036760540818,
+            0.11782193587320959,
+            0.12514485784587187,
+            0.19578675729285738,
+            0.14317638084367082,
+        ],
+        tonicity_context: [
+            0.14494953889991966,
+            0.13388427151143703,
+            0.12421865355744773,
+            0.12032477207587648,
+            0.12509434903813688,
+            0.21468974619274633,
+            0.13683866872443598,
+        ],
+    },
+]
+Iteration 2/5
+     0.00c: ton 0.1652, ton ctx: 0.1449, ton tgt: 0.1760, diss raw:    NaN, diss ctx:    NaN
+   400.00c: ton 0.1381, ton ctx: 0.1339, ton tgt: 0.1404, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1200, ton ctx: 0.1242, ton tgt: 0.1177, diss raw:    NaN, diss ctx:    NaN
+  1100.00c: ton 0.1139, ton ctx: 0.1203, ton tgt: 0.1104, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1212, ton ctx: 0.1251, ton tgt: 0.1192, diss raw:    NaN, diss ctx:    NaN
+  1800.00c: ton 0.1990, ton ctx: 0.2147, ton tgt: 0.1906, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1427, ton ctx: 0.1368, ton tgt: 0.1458, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4037
+5s: [
+    Dissonance {
+        dissonance: 0.4037470282314765,
+        tonicity_target: [
+            0.1759909255536277,
+            0.1403635202844395,
+            0.11767352188091734,
+            0.11039736903809359,
+            0.11917391052295445,
+            0.19061316744990525,
+            0.14578758527006155,
+        ],
+        tonicity_context: [
+            0.1651674632766719,
+            0.1381043459292492,
+            0.11995566818413911,
+            0.11385884044355178,
+            0.12123823978913628,
+            0.19900815136890398,
+            0.1426672910083478,
+        ],
+    },
+]
+Iteration 3/5
+     0.00c: ton 0.1977, ton ctx: 0.1652, ton tgt: 0.2151, diss raw:    NaN, diss ctx:    NaN
+   400.00c: ton 0.1403, ton ctx: 0.1381, ton tgt: 0.1415, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1150, ton ctx: 0.1200, ton tgt: 0.1123, diss raw:    NaN, diss ctx:    NaN
+  1100.00c: ton 0.1080, ton ctx: 0.1139, ton tgt: 0.1048, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1164, ton ctx: 0.1212, ton tgt: 0.1138, diss raw:    NaN, diss ctx:    NaN
+  1800.00c: ton 0.1774, ton ctx: 0.1990, ton tgt: 0.1659, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1453, ton ctx: 0.1427, ton tgt: 0.1466, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4068
+7.5s: [
+    Dissonance {
+        dissonance: 0.4068297095945362,
+        tonicity_target: [
+            0.2150949994308788,
+            0.14150539618700597,
+            0.1123143559234254,
+            0.10480377158784586,
+            0.1137815456819802,
+            0.16585335734408996,
+            0.146646573844771,
+        ],
+        tonicity_context: [
+            0.19768634400659393,
+            0.14031952328842986,
+            0.11497871676280826,
+            0.10796107887145169,
+            0.11638153415156645,
+            0.17741371920649923,
+            0.14525908371265053,
+        ],
+    },
+]
+Iteration 4/5
+     0.00c: ton 0.2458, ton ctx: 0.1977, ton tgt: 0.2716, diss raw:    NaN, diss ctx:    NaN
+   400.00c: ton 0.1389, ton ctx: 0.1403, ton tgt: 0.1382, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1086, ton ctx: 0.1150, ton tgt: 0.1052, diss raw:    NaN, diss ctx:    NaN
+  1100.00c: ton 0.1017, ton ctx: 0.1080, ton tgt: 0.0984, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1099, ton ctx: 0.1164, ton tgt: 0.1065, diss raw:    NaN, diss ctx:    NaN
+  1800.00c: ton 0.1522, ton ctx: 0.1774, ton tgt: 0.1387, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1428, ton ctx: 0.1453, ton tgt: 0.1414, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4116
+10s: [
+    Dissonance {
+        dissonance: 0.41156882702461756,
+        tonicity_target: [
+            0.2715690407578233,
+            0.13819849496520506,
+            0.10524406489151746,
+            0.09836674643328626,
+            0.10648306726986763,
+            0.1387252215246251,
+            0.14141336415767317,
+        ],
+        tonicity_context: [
+            0.24580773730422362,
+            0.1389380518123552,
+            0.10863832812091583,
+            0.10171208330162675,
+            0.10993444926156004,
+            0.15221506654615366,
+            0.14275428365316492,
+        ],
+    },
+]
+Iteration 5/5
+     0.00c: ton 0.2851, ton ctx: 0.2458, ton tgt: 0.3061, diss raw:    NaN, diss ctx:    NaN
+   400.00c: ton 0.1376, ton ctx: 0.1389, ton tgt: 0.1369, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1044, ton ctx: 0.1086, ton tgt: 0.1021, diss raw:    NaN, diss ctx:    NaN
+  1100.00c: ton 0.0980, ton ctx: 0.1017, ton tgt: 0.0960, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1054, ton ctx: 0.1099, ton tgt: 0.1030, diss raw:    NaN, diss ctx:    NaN
+  1800.00c: ton 0.1306, ton ctx: 0.1522, ton tgt: 0.1190, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1390, ton ctx: 0.1428, ton tgt: 0.1369, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4159
+12.5s: [
+    Dissonance {
+        dissonance: 0.4158947349525262,
+        tonicity_target: [
+            0.3061063050378346,
+            0.1369394344425686,
+            0.10206187325558738,
+            0.09603624243569935,
+            0.10295096681921949,
+            0.11896824265393385,
+            0.1369369353551558,
+        ],
+        tonicity_context: [
+            0.285081494500215,
+            0.1376363092294226,
+            0.1043549412794182,
+            0.0980152857750868,
+            0.10538595658368057,
+            0.13056069334695253,
+            0.1389653192852241,
+        ],
+    },
+]
+
+============  Graph diss: Cmin13 with no context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.2687, ton ctx: 0.2000, ton tgt: 0.2787, diss raw:    NaN, diss ctx:    NaN
+   300.00c: ton 0.1319, ton ctx: 0.1000, ton tgt: 0.1357, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1159, ton ctx: 0.1000, ton tgt: 0.1110, diss raw:    NaN, diss ctx:    NaN
+  1000.00c: ton 0.1211, ton ctx: 0.1000, ton tgt: 0.1191, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1144, ton ctx: 0.1000, ton tgt: 0.1087, diss raw:    NaN, diss ctx:    NaN
+  1700.00c: ton 0.1304, ton ctx: 0.1000, ton tgt: 0.1333, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1175, ton ctx: 0.1000, ton tgt: 0.1135, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4200
+2.5s: [
+    Dissonance {
+        dissonance: 0.4200195039557328,
+        tonicity_target: [
+            0.2786830556993533,
+            0.13566726936887682,
+            0.11103331161766217,
+            0.11905318744640023,
+            0.10872970627517889,
+            0.13329465359007964,
+            0.11353881600245201,
+        ],
+        tonicity_context: [
+            0.26868189258080083,
+            0.13194782252521006,
+            0.11590319473617827,
+            0.12112671277115625,
+            0.1144028069111181,
+            0.13040248671512056,
+            0.11753508376041588,
+        ],
+    },
+]
+
+============  Graph diss: Cmin13 with C context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.2687, ton ctx: 0.2000, ton tgt: 0.2787, diss raw:    NaN, diss ctx:    NaN
+   300.00c: ton 0.1319, ton ctx: 0.1000, ton tgt: 0.1357, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1159, ton ctx: 0.1000, ton tgt: 0.1110, diss raw:    NaN, diss ctx:    NaN
+  1000.00c: ton 0.1211, ton ctx: 0.1000, ton tgt: 0.1191, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1144, ton ctx: 0.1000, ton tgt: 0.1087, diss raw:    NaN, diss ctx:    NaN
+  1700.00c: ton 0.1304, ton ctx: 0.1000, ton tgt: 0.1333, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1175, ton ctx: 0.1000, ton tgt: 0.1135, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4200
+2.5s: [
+    Dissonance {
+        dissonance: 0.4200195039557328,
+        tonicity_target: [
+            0.2786830556993533,
+            0.13566726936887682,
+            0.11103331161766217,
+            0.11905318744640023,
+            0.10872970627517889,
+            0.13329465359007964,
+            0.11353881600245201,
+        ],
+        tonicity_context: [
+            0.26868189258080083,
+            0.13194782252521006,
+            0.11590319473617827,
+            0.12112671277115625,
+            0.1144028069111181,
+            0.13040248671512056,
+            0.11753508376041588,
+        ],
+    },
+]
+
+============  Graph diss: Cmin13 with Eb context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1273, ton ctx: 0.1000, ton tgt: 0.1286, diss raw:    NaN, diss ctx:    NaN
+   300.00c: ton 0.2788, ton ctx: 0.2000, ton tgt: 0.2942, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1144, ton ctx: 0.1000, ton tgt: 0.1087, diss raw:    NaN, diss ctx:    NaN
+  1000.00c: ton 0.1205, ton ctx: 0.1000, ton tgt: 0.1181, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1131, ton ctx: 0.1000, ton tgt: 0.1067, diss raw:    NaN, diss ctx:    NaN
+  1700.00c: ton 0.1297, ton ctx: 0.1000, ton tgt: 0.1322, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.1162, ton ctx: 0.1000, ton tgt: 0.1115, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4362
+2.5s: [
+    Dissonance {
+        dissonance: 0.4362337172015992,
+        tonicity_target: [
+            0.12856377639645253,
+            0.2941859626917517,
+            0.10874937635193714,
+            0.11810250286147113,
+            0.10671220597712781,
+            0.13219852031374138,
+            0.1114876554075247,
+        ],
+        tonicity_context: [
+            0.12732116440167177,
+            0.2787792701460738,
+            0.1144156184561954,
+            0.12050751140432708,
+            0.11308876546989254,
+            0.12968855147971733,
+            0.11619911864212219,
+        ],
+    },
+]
+
+============  Graph diss: Cmin13 with A context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1371, ton ctx: 0.1000, ton tgt: 0.1435, diss raw:    NaN, diss ctx:    NaN
+   300.00c: ton 0.1400, ton ctx: 0.1000, ton tgt: 0.1480, diss raw:    NaN, diss ctx:    NaN
+   700.00c: ton 0.1209, ton ctx: 0.1000, ton tgt: 0.1187, diss raw:    NaN, diss ctx:    NaN
+  1000.00c: ton 0.1275, ton ctx: 0.1000, ton tgt: 0.1288, diss raw:    NaN, diss ctx:    NaN
+  1400.00c: ton 0.1192, ton ctx: 0.1000, ton tgt: 0.1161, diss raw:    NaN, diss ctx:    NaN
+  1700.00c: ton 0.1385, ton ctx: 0.1000, ton tgt: 0.1458, diss raw:    NaN, diss ctx:    NaN
+  2100.00c: ton 0.2169, ton ctx: 0.2000, ton tgt: 0.1992, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.3959
+2.5s: [
+    Dissonance {
+        dissonance: 0.3959484373831218,
+        tonicity_target: [
+            0.14353592251710454,
+            0.14795961380370812,
+            0.11866017810292628,
+            0.12878633373257203,
+            0.11609699613619981,
+            0.14578645231225407,
+            0.1991745033952327,
+        ],
+        tonicity_context: [
+            0.1370728459680263,
+            0.13995409147733298,
+            0.12087073731250997,
+            0.12746612079300101,
+            0.11920128163563411,
+            0.1385386645448045,
+            0.2168962582686912,
+        ],
+    },
+]
+
+============  Graph diss: Cm11b5b9b13 with no context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1203, ton ctx: 0.1000, ton tgt: 0.1178, diss raw:    NaN, diss ctx:    NaN
+   300.00c: ton 0.1284, ton ctx: 0.1000, ton tgt: 0.1302, diss raw:    NaN, diss ctx:    NaN
+   600.00c: ton 0.1276, ton ctx: 0.1000, ton tgt: 0.1289, diss raw:    NaN, diss ctx:    NaN
+  1000.00c: ton 0.1190, ton ctx: 0.1000, ton tgt: 0.1159, diss raw:    NaN, diss ctx:    NaN
+  1300.00c: ton 0.1197, ton ctx: 0.1000, ton tgt: 0.1169, diss raw:    NaN, diss ctx:    NaN
+  1700.00c: ton 0.1260, ton ctx: 0.1000, ton tgt: 0.1265, diss raw:    NaN, diss ctx:    NaN
+  2000.00c: ton 0.2590, ton ctx: 0.2000, ton tgt: 0.2638, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4033
+2.5s: [
+    Dissonance {
+        dissonance: 0.4032973304934846,
+        tonicity_target: [
+            0.11781704377565472,
+            0.1302038795933526,
+            0.12893747214857532,
+            0.11585221311836284,
+            0.11689462887936515,
+            0.1265255565785356,
+            0.26376920590615327,
+        ],
+        tonicity_context: [
+            0.12032158574726606,
+            0.12838939897427423,
+            0.12756456050187293,
+            0.11904184917861937,
+            0.11972079703813973,
+            0.12599362789044755,
+            0.2589681806693801,
+        ],
+    },
+]
+
+============  Graph diss: Cm11b5b9b13 with Ab context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1203, ton ctx: 0.1000, ton tgt: 0.1178, diss raw:    NaN, diss ctx:    NaN
+   300.00c: ton 0.1284, ton ctx: 0.1000, ton tgt: 0.1302, diss raw:    NaN, diss ctx:    NaN
+   600.00c: ton 0.1276, ton ctx: 0.1000, ton tgt: 0.1289, diss raw:    NaN, diss ctx:    NaN
+  1000.00c: ton 0.1190, ton ctx: 0.1000, ton tgt: 0.1159, diss raw:    NaN, diss ctx:    NaN
+  1300.00c: ton 0.1197, ton ctx: 0.1000, ton tgt: 0.1169, diss raw:    NaN, diss ctx:    NaN
+  1700.00c: ton 0.1260, ton ctx: 0.1000, ton tgt: 0.1265, diss raw:    NaN, diss ctx:    NaN
+  2000.00c: ton 0.2590, ton ctx: 0.2000, ton tgt: 0.2638, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4033
+2.5s: [
+    Dissonance {
+        dissonance: 0.4032973304934846,
+        tonicity_target: [
+            0.11781704377565472,
+            0.1302038795933526,
+            0.12893747214857532,
+            0.11585221311836284,
+            0.11689462887936515,
+            0.1265255565785356,
+            0.26376920590615327,
+        ],
+        tonicity_context: [
+            0.12032158574726606,
+            0.12838939897427423,
+            0.12756456050187293,
+            0.11904184917861937,
+            0.11972079703813973,
+            0.12599362789044755,
+            0.2589681806693801,
+        ],
+    },
+]
+
+============  Graph diss: Cm11b5b9b13 with Eb context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.1199, ton ctx: 0.1000, ton tgt: 0.1172, diss raw:    NaN, diss ctx:    NaN
+   300.00c: ton 0.2571, ton ctx: 0.2000, ton tgt: 0.2609, diss raw:    NaN, diss ctx:    NaN
+   600.00c: ton 0.1274, ton ctx: 0.1000, ton tgt: 0.1288, diss raw:    NaN, diss ctx:    NaN
+  1000.00c: ton 0.1198, ton ctx: 0.1000, ton tgt: 0.1171, diss raw:    NaN, diss ctx:    NaN
+  1300.00c: ton 0.1200, ton ctx: 0.1000, ton tgt: 0.1172, diss raw:    NaN, diss ctx:    NaN
+  1700.00c: ton 0.1261, ton ctx: 0.1000, ton tgt: 0.1267, diss raw:    NaN, diss ctx:    NaN
+  2000.00c: ton 0.1296, ton ctx: 0.1000, ton tgt: 0.1321, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4518
+2.5s: [
+    Dissonance {
+        dissonance: 0.45180446473714037,
+        tonicity_target: [
+            0.11718028295585448,
+            0.2608952295980413,
+            0.12875851095070154,
+            0.11709117576217763,
+            0.11724812177722325,
+            0.1267125433812141,
+            0.1321141355747902,
+        ],
+        tonicity_context: [
+            0.11990684969683033,
+            0.2570962979372645,
+            0.12744799921531197,
+            0.11984881226044641,
+            0.11995103458378602,
+            0.12611541642644858,
+            0.12963358987991225,
+        ],
+    },
+]
+
+============  Graph diss: Cm11b5b9b13 with C context  =====================
+
+Iteration 1/1
+     0.00c: ton 0.2299, ton ctx: 0.2000, ton tgt: 0.2192, diss raw:    NaN, diss ctx:    NaN
+   300.00c: ton 0.1314, ton ctx: 0.1000, ton tgt: 0.1349, diss raw:    NaN, diss ctx:    NaN
+   600.00c: ton 0.1307, ton ctx: 0.1000, ton tgt: 0.1337, diss raw:    NaN, diss ctx:    NaN
+  1000.00c: ton 0.1223, ton ctx: 0.1000, ton tgt: 0.1208, diss raw:    NaN, diss ctx:    NaN
+  1300.00c: ton 0.1233, ton ctx: 0.1000, ton tgt: 0.1224, diss raw:    NaN, diss ctx:    NaN
+  1700.00c: ton 0.1289, ton ctx: 0.1000, ton tgt: 0.1310, diss raw:    NaN, diss ctx:    NaN
+  2000.00c: ton 0.1335, ton ctx: 0.1000, ton tgt: 0.1381, diss raw:    NaN, diss ctx:    NaN
+Diss: 0.4470
+2.5s: [
+    Dissonance {
+        dissonance: 0.44700510860341214,
+        tonicity_target: [
+            0.21920410428982454,
+            0.13485036944613094,
+            0.13368375490363213,
+            0.12082277199636758,
+            0.12240207428799665,
+            0.13096999695694417,
+            0.13806692811910296,
+        ],
+        tonicity_context: [
+            0.22994196916753096,
+            0.1314157579932454,
+            0.13065591678962304,
+            0.12227928134061625,
+            0.12330791497275374,
+            0.12888838773059522,
+            0.1335107720056354,
+        ],
+    },
+]
+test polyadic::tests::test_context_effect ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 2.47s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -479,7 +479,7 @@ impl GraphDissDebug {
         }
     }
 
-    pub fn print(&self, cents: &[f64], show_top_n_contributing_trees: usize, show_top_n_likelihood_trees: usize) {
+    pub fn print(&self, cents: &[f64], show_top_n_contributing_trees: usize, show_top_n_likelihood_trees: usize, names: Option<&[&str]>) {
         let sum_exp_likelihood = self
             .trees_sorted_asc_contrib
             .iter()
@@ -498,7 +498,7 @@ impl GraphDissDebug {
                         tree.likelihood,
                         tree.likelihood.exp() / sum_exp_likelihood * tree.complexity
                     );
-                    tree.tree.print();
+                    tree.tree.print(names);
                 }
                 println!(
                     "Highest {} likelihood trees for root {:>7.2}c:",
@@ -511,7 +511,7 @@ impl GraphDissDebug {
                         tree.likelihood,
                         tree.likelihood.exp() / sum_exp_likelihood * tree.complexity
                     );
-                    tree.tree.print();
+                    tree.tree.print(names);
                 }
             }
         }
@@ -529,7 +529,7 @@ impl GraphDissDebug {
                     " -> contrib {:>6.4} (complexity {:>6.4}, likelihood {:>6.4}):",
                     contrib, tree.complexity, tree.likelihood
                 );
-                tree.tree.print();
+                tree.tree.print(names);
             }
         }
         if show_top_n_likelihood_trees != 0 {
@@ -545,7 +545,7 @@ impl GraphDissDebug {
                     " -> likelihood {:>6.4} (complexity {:>6.4}):",
                     tree.likelihood, tree.complexity
                 );
-                tree.tree.print();
+                tree.tree.print(names);
             }
         }
     }
@@ -1833,36 +1833,56 @@ mod tests {
         let time = 2.5;
         let iters = 1;
 
+        // Cmaj13#11
+        graph_diss_ctx(
+            &[0.0, 400.0, 700.0, 1100.0, 1400.0, 1800.0, 2100.0],
+            &[],
+            "Cmaj13#11 with no context",
+            time,
+            iters,
+            Some(&["C4", "E4", "G4", "B4", "D5", "F#5", "A5"]),
+        );
         graph_diss_ctx(
             &[0.0, 400.0, 700.0, 1100.0, 1400.0, 1800.0, 2100.0],
             &[0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
             "Cmaj13#11 with C context",
             time,
             iters,
+            Some(&["C4", "E4", "G4", "B4", "D5", "F#5", "A5"]),
         );
-
         graph_diss_ctx(
             &[0.0, 400.0, 700.0, 1100.0, 1400.0, 1800.0, 2100.0],
             &[0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1],
             "Cmaj13#11 with E context",
             time,
             iters,
+            Some(&["C4", "E4", "G4", "B4", "D5", "F#5", "A5"]),
         );
-
         graph_diss_ctx(
             &[0.0, 400.0, 700.0, 1100.0, 1400.0, 1800.0, 2100.0],
             &[0.1, 0.1, 0.1, 0.1, 0.1, 0.2, 0.1],
             "Cmaj13#11 with F# context",
             time,
             5,
+            Some(&["C4", "E4", "G4", "B4", "D5", "F#5", "A5"]),
         );
 
+        // Cmin13
+        graph_diss_ctx(
+            &[0.0, 300.0, 700.0, 1000.0, 1400.0, 1700.0, 2100.0],
+            &[0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+            "Cmin13 with no context",
+            time,
+            iters,
+            Some(&["C4", "Eb4", "G4", "Bb4", "D5", "F5", "A5"]),
+        );
         graph_diss_ctx(
             &[0.0, 300.0, 700.0, 1000.0, 1400.0, 1700.0, 2100.0],
             &[0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
             "Cmin13 with C context",
             time,
             iters,
+            Some(&["C4", "Eb4", "G4", "Bb4", "D5", "F5", "A5"]),
         );
         graph_diss_ctx(
             &[0.0, 300.0, 700.0, 1000.0, 1400.0, 1700.0, 2100.0],
@@ -1870,6 +1890,7 @@ mod tests {
             "Cmin13 with Eb context",
             time,
             iters,
+            Some(&["C4", "Eb4", "G4", "Bb4", "D5", "F5", "A5"]),
         );
         graph_diss_ctx(
             &[0.0, 300.0, 700.0, 1000.0, 1400.0, 1700.0, 2100.0],
@@ -1877,28 +1898,41 @@ mod tests {
             "Cmin13 with A context",
             time,
             iters,
+            Some(&["C4", "Eb4", "G4", "Bb4", "D5", "F5", "A5"]),
         );
 
+        // Cm11b5b9b13
         graph_diss_ctx(
             &[0.0, 300.0, 600.0, 1000.0, 1300.0, 1700.0, 2000.0],
             &[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.2],
-            "Cm11b5b9 with Ab context",
+            "Cm11b5b9b13 with no context",
             time,
             iters,
+            Some(&["C4", "Eb4", "Gb4", "Bb4", "Db5", "F5", "Ab5"]),
+        );
+        graph_diss_ctx(
+            &[0.0, 300.0, 600.0, 1000.0, 1300.0, 1700.0, 2000.0],
+            &[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.2],
+            "Cm11b5b9b13 with Ab context",
+            time,
+            iters,
+            Some(&["C4", "Eb4", "Gb4", "Bb4", "Db5", "F5", "Ab5"]),
         );
         graph_diss_ctx(
             &[0.0, 300.0, 600.0, 1000.0, 1300.0, 1700.0, 2000.0],
             &[0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1],
-            "Cm11b5b9 with Eb context",
+            "Cm11b5b9b13 with Eb context",
             time,
             iters,
+            Some(&["C4", "Eb4", "Gb4", "Bb4", "Db5", "F5", "Ab5"]),
         );
         graph_diss_ctx(
             &[0.0, 300.0, 600.0, 1000.0, 1300.0, 1700.0, 2000.0],
             &[0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
-            "Cm11b5b9 with C context",
+            "Cm11b5b9b13 with C context",
             time,
             iters,
+            Some(&["C4", "Eb4", "Gb4", "Bb4", "Db5", "F5", "Ab5"]),
         );
     }
 
@@ -2127,15 +2161,18 @@ mod tests {
         elapsed_seconds: f64,
         iters: usize,
     ) -> Vec<GraphDissTestResult> {
-        graph_diss_ctx(cents, &vec![], name, elapsed_seconds, iters)
+        graph_diss_ctx(cents, &vec![], name, elapsed_seconds, iters, None)
     }
 
+    /// `names` is an optional list of names for each note in `cents`. Otherwise, the trees will be
+    /// printed with node indices rather than note names.
     fn graph_diss_ctx(
         cents: &[f64],
         ctx: &[f64],
         name: &str,
         elapsed_seconds: f64,
         iters: usize,
+        names: Option<&[&str]>,
     ) -> Vec<GraphDissTestResult> {
         // if non-zero, show this many lowest complexity trees per root
         const SHOW_N_TREES: usize = 0;
@@ -2154,7 +2191,7 @@ mod tests {
 
         let mut results_per_iter = vec![];
 
-        let mut context = ctx.to_vec();
+        let mut context = if ctx.len() != 0 { ctx.to_vec() } else { vec![0f64; cents.len() ]};
 
         println!(
             "\n============  Graph diss: {}  =====================\n",
@@ -2199,7 +2236,7 @@ mod tests {
             // Print the lowest complexity trees per root
 
             if let Some(debug) = debug {
-                debug.print(cents, SHOW_TOP_N_CONTRIBUTING_TREES, SHOW_TOP_N_LIKELIHOOD_TREES);
+                debug.print(cents, SHOW_TOP_N_CONTRIBUTING_TREES, SHOW_TOP_N_LIKELIHOOD_TREES, names);
             }
             context = diss[0].tonicity_context.clone();
         }
@@ -2352,12 +2389,12 @@ mod tests {
         .clone();
 
         println!("\nExisting: {:#?}", diss_existing);
-        debug_existing.unwrap().print(&cents, 0, 10);
+        debug_existing.unwrap().print(&cents, 0, 10, None);
 
         println!("\nCandidate: {:#?}", diss_candidate);
 
         println!("\nCandidate simulated: {:#?}", diss_cand_simul);
-        debug_candidate_simul.unwrap().print(&cents, 0, 10);
+        debug_candidate_simul.unwrap().print(&cents, 0, 10, None);
 
         println!(
             "\nInit with simul heur tonicities: {:#?}",

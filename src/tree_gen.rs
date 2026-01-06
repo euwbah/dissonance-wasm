@@ -86,8 +86,29 @@ pub struct ST {
 }
 
 impl ST {
-    pub fn print(&self) {
-        print_tree(self);
+    /// Print the ST as a tree to stdout.
+    ///
+    /// If `names` is provided, it is used to label the nodes instead of their indices, where the
+    /// node number is the index into `names`.
+    pub fn print(&self, names: Option<&[&str]>) {
+        fn make_termtree(start: u8, children: &Vec<Vec<u8>>, names: Option<&[&str]>) -> Tree<String> {
+            let start_str = if let Some(names) = names {
+                names.get(start as usize).map(|s| s.to_string()).unwrap_or(start.to_string())
+            } else {
+                start.to_string()
+            };
+            let mut root = Tree::new(start_str);
+            for edge in &children[start as usize] {
+                root.push(make_termtree(*edge, children, names));
+            }
+            root
+        }
+
+        let children = &self.children;
+        let start = self.root;
+
+        let tree = make_termtree(start, children, names);
+        println!("{}", tree);
     }
 }
 
@@ -374,22 +395,6 @@ fn count_inversions(arr: &[usize]) -> usize {
     count
 }
 
-fn print_tree(t: &ST) {
-    let children = &t.children;
-    let start = t.root;
-
-    let tree = make_termtree(start, children);
-    println!("{}", tree);
-}
-
-fn make_termtree(start: u8, children: &Vec<Vec<u8>>) -> Tree<u8> {
-    let mut root = Tree::new(start);
-    for edge in &children[start as usize] {
-        root.push(make_termtree(*edge, children));
-    }
-    root
-}
-
 mod tests {
     use super::*;
 
@@ -409,7 +414,7 @@ mod tests {
         for (idx, st) in sts.iter().enumerate() {
             println!("ST {idx}");
 
-            print_tree(st);
+            st.print(None);
         }
 
         println!("^^^ STs of 4 notes, max 2 children per node, max depth 2 ^^^")
@@ -562,7 +567,7 @@ mod tests {
                         tree.root,
                         nodes_mask,
                         expected_mask,
-                        tree.print()
+                        tree.print(None)
                     );
 
                     // Verify adjacency list matches
@@ -580,7 +585,7 @@ mod tests {
                             "Adjacency list entry mismatch for subtree at node {} in tree with root {}\n  \
                             Key entry: {:?}, Actual entry: {:?}\n  \
                             Full key adj: {:?}, Full actual adj: {:?}\nError in subtree key: {:b} {:?}",
-                            node, tree.root, key_entry, actual_entry, adj_list_from_key, actual_adj_list, key, tree.print()
+                            node, tree.root, key_entry, actual_entry, adj_list_from_key, actual_adj_list, key, tree.print(None)
                         );
                     }
 
