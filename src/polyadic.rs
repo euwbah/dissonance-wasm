@@ -479,7 +479,13 @@ impl GraphDissDebug {
         }
     }
 
-    pub fn print(&self, cents: &[f64], show_top_n_contributing_trees: usize, show_top_n_likelihood_trees: usize, names: Option<&[&str]>) {
+    pub fn print(
+        &self,
+        cents: &[f64],
+        show_top_n_contributing_trees: usize,
+        show_top_n_likelihood_trees: usize,
+        names: Option<&[&str]>,
+    ) {
         let sum_exp_likelihood = self
             .trees_sorted_asc_contrib
             .iter()
@@ -661,7 +667,10 @@ pub fn graph_dissonance(
     let tonicity_context = if old_tonicity_context_sum == 0.0 {
         heuristic_tonicities.tonicities_no_cand.clone()
     } else {
-        tonicity_context.iter().map(|x| x / old_tonicity_context_sum).collect()
+        tonicity_context
+            .iter()
+            .map(|x| x / old_tonicity_context_sum)
+            .collect()
     };
 
     let dyad_roughs = heuristic_tonicities.add_roughness_map; // use additive roughness.
@@ -795,8 +804,7 @@ pub fn graph_dissonance(
                 d.trees_sorted_asc_contrib
                     .insert(TreeResultContribAsc(entry.clone()));
 
-                d.trees_sorted_asc_like
-                    .insert(TreeResultLikeAsc(entry));
+                d.trees_sorted_asc_like.insert(TreeResultLikeAsc(entry));
             }
         }
 
@@ -1841,6 +1849,9 @@ mod tests {
             time,
             iters,
             Some(&["C4", "E4", "G4", "B4", "D5", "F#5", "A5"]),
+            0,
+            0,
+            4,
         );
         graph_diss_ctx(
             &[0.0, 400.0, 700.0, 1100.0, 1400.0, 1800.0, 2100.0],
@@ -1849,6 +1860,9 @@ mod tests {
             time,
             iters,
             Some(&["C4", "E4", "G4", "B4", "D5", "F#5", "A5"]),
+            0,
+            0,
+            4,
         );
         graph_diss_ctx(
             &[0.0, 400.0, 700.0, 1100.0, 1400.0, 1800.0, 2100.0],
@@ -1857,14 +1871,20 @@ mod tests {
             time,
             iters,
             Some(&["C4", "E4", "G4", "B4", "D5", "F#5", "A5"]),
+            0,
+            0,
+            4,
         );
         graph_diss_ctx(
             &[0.0, 400.0, 700.0, 1100.0, 1400.0, 1800.0, 2100.0],
             &[0.1, 0.1, 0.1, 0.1, 0.1, 0.2, 0.1],
             "Cmaj13#11 with F# context",
             time,
-            5,
+            1,
             Some(&["C4", "E4", "G4", "B4", "D5", "F#5", "A5"]),
+            0,
+            0,
+            4,
         );
 
         // Cmin13
@@ -1875,6 +1895,9 @@ mod tests {
             time,
             iters,
             Some(&["C4", "Eb4", "G4", "Bb4", "D5", "F5", "A5"]),
+            0,
+            0,
+            4,
         );
         graph_diss_ctx(
             &[0.0, 300.0, 700.0, 1000.0, 1400.0, 1700.0, 2100.0],
@@ -1883,6 +1906,9 @@ mod tests {
             time,
             iters,
             Some(&["C4", "Eb4", "G4", "Bb4", "D5", "F5", "A5"]),
+            0,
+            0,
+            4,
         );
         graph_diss_ctx(
             &[0.0, 300.0, 700.0, 1000.0, 1400.0, 1700.0, 2100.0],
@@ -1891,6 +1917,9 @@ mod tests {
             time,
             iters,
             Some(&["C4", "Eb4", "G4", "Bb4", "D5", "F5", "A5"]),
+            0,
+            0,
+            4,
         );
         graph_diss_ctx(
             &[0.0, 300.0, 700.0, 1000.0, 1400.0, 1700.0, 2100.0],
@@ -1899,6 +1928,9 @@ mod tests {
             time,
             iters,
             Some(&["C4", "Eb4", "G4", "Bb4", "D5", "F5", "A5"]),
+            0,
+            0,
+            4,
         );
 
         // Cm11b5b9b13
@@ -1909,6 +1941,9 @@ mod tests {
             time,
             iters,
             Some(&["C4", "Eb4", "Gb4", "Bb4", "Db5", "F5", "Ab5"]),
+            0,
+            0,
+            4,
         );
         graph_diss_ctx(
             &[0.0, 300.0, 600.0, 1000.0, 1300.0, 1700.0, 2000.0],
@@ -1917,6 +1952,9 @@ mod tests {
             time,
             iters,
             Some(&["C4", "Eb4", "Gb4", "Bb4", "Db5", "F5", "Ab5"]),
+            0,
+            0,
+            4,
         );
         graph_diss_ctx(
             &[0.0, 300.0, 600.0, 1000.0, 1300.0, 1700.0, 2000.0],
@@ -1925,6 +1963,9 @@ mod tests {
             time,
             iters,
             Some(&["C4", "Eb4", "Gb4", "Bb4", "Db5", "F5", "Ab5"]),
+            0,
+            0,
+            4,
         );
         graph_diss_ctx(
             &[0.0, 300.0, 600.0, 1000.0, 1300.0, 1700.0, 2000.0],
@@ -1933,6 +1974,9 @@ mod tests {
             time,
             iters,
             Some(&["C4", "Eb4", "Gb4", "Bb4", "Db5", "F5", "Ab5"]),
+            0,
+            0,
+            4,
         );
     }
 
@@ -2161,7 +2205,7 @@ mod tests {
         elapsed_seconds: f64,
         iters: usize,
     ) -> Vec<GraphDissTestResult> {
-        graph_diss_ctx(cents, &vec![], name, elapsed_seconds, iters, None)
+        graph_diss_ctx(cents, &vec![], name, elapsed_seconds, iters, None, 0, 0, 5)
     }
 
     /// `names` is an optional list of names for each note in `cents`. Otherwise, the trees will be
@@ -2173,16 +2217,12 @@ mod tests {
         elapsed_seconds: f64,
         iters: usize,
         names: Option<&[&str]>,
+        show_n_trees: usize,
+        show_top_n_contributing_trees: usize,
+        show_top_n_likelihood_trees: usize,
     ) -> Vec<GraphDissTestResult> {
-        // if non-zero, show this many lowest complexity trees per root
-        const SHOW_N_TREES: usize = 0;
-
-        // if true, show trees sorted by descending diss contribution (complexity * softmax likelihood)
-        const SHOW_TOP_N_CONTRIBUTING_TREES: usize = 0;
-
-        const SHOW_TOP_N_LIKELIHOOD_TREES: usize = 0;
-
-        let use_debug = SHOW_N_TREES + SHOW_TOP_N_CONTRIBUTING_TREES + SHOW_TOP_N_LIKELIHOOD_TREES > 0;
+        let use_debug =
+            show_n_trees + show_top_n_contributing_trees + show_top_n_likelihood_trees > 0;
 
         let freqs = cents
             .iter()
@@ -2191,7 +2231,11 @@ mod tests {
 
         let mut results_per_iter = vec![];
 
-        let mut context = if ctx.len() != 0 { ctx.to_vec() } else { vec![0f64; cents.len() ]};
+        let mut context = if ctx.len() != 0 {
+            ctx.to_vec()
+        } else {
+            vec![0f64; cents.len()]
+        };
 
         println!(
             "\n============  Graph diss: {}  =====================\n",
@@ -2199,7 +2243,7 @@ mod tests {
         );
         for i in 0..iters {
             let mut debug = if use_debug {
-                Some(GraphDissDebug::new(SHOW_N_TREES, cents.len()))
+                Some(GraphDissDebug::new(show_n_trees, cents.len()))
             } else {
                 None
             };
@@ -2236,7 +2280,12 @@ mod tests {
             // Print the lowest complexity trees per root
 
             if let Some(debug) = debug {
-                debug.print(cents, SHOW_TOP_N_CONTRIBUTING_TREES, SHOW_TOP_N_LIKELIHOOD_TREES, names);
+                debug.print(
+                    cents,
+                    show_top_n_contributing_trees,
+                    show_top_n_likelihood_trees,
+                    names,
+                );
             }
             context = diss[0].tonicity_context.clone();
         }
@@ -2692,22 +2741,23 @@ mod tests {
             let tonicities_idx_highest_to_lowest = {
                 let mut idxs: Vec<usize> = (0..max_tonicity_cand.tonicity_context.len()).collect();
                 idxs.sort_by(|&a, &b| {
-                    max_tonicity_cand
-                        .tonicity_context[b]
+                    max_tonicity_cand.tonicity_context[b]
                         .partial_cmp(&max_tonicity_cand.tonicity_context[a])
                         .unwrap()
                 });
                 idxs
             };
 
-            println!("Tonicity ranking of candidates: {:?}", tonicities_idx_highest_to_lowest);
+            println!(
+                "Tonicity ranking of candidates: {:?}",
+                tonicities_idx_highest_to_lowest
+            );
         }
     }
 
     /// Test the distribution of dissonance scores for N = 2, ..., 8 notes randomly distributed over C3 - C6.
     #[test]
     fn test_diss_distribution() {
-
         use compute::statistics::*;
         use histo::Histogram;
 
@@ -2721,23 +2771,14 @@ mod tests {
             let mut diss_scores = vec![];
             let mut histogram = Histogram::with_buckets(10);
             for _ in 0..1000 {
-                let cents: Vec<f64> = (0..n)
-                    .map(|_| gen_rand_cents(0.0, 3600.0))
-                    .collect();
+                let cents: Vec<f64> = (0..n).map(|_| gen_rand_cents(0.0, 3600.0)).collect();
                 let freqs = cents
                     .iter()
                     .map(|x| cents_to_hz(261.63 / 2.0, *x))
                     .collect::<Vec<f64>>();
-                let diss = graph_dissonance(
-                    &freqs,
-                    &[],
-                    &vec![0f64; cents.len()],
-                    0.9,
-                    0.1,
-                    800,
-                    None,
-                )[0]
-                .clone();
+                let diss =
+                    graph_dissonance(&freqs, &[], &vec![0f64; cents.len()], 0.9, 0.1, 800, None)[0]
+                        .clone();
                 diss_scores.push(diss.dissonance);
                 histogram.add((diss.dissonance * 10000.0) as u64);
             }

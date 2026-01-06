@@ -4,13 +4,13 @@ running 1 test
 ============  Graph diss: Cmaj13#11 with no context  =====================
 
 Iteration 1/1
-     0.00c: ton 0.1611, ton ctx: 0.0000, ton tgt: 0.1705, diss raw:    NaN, diss ctx:    NaN
-   400.00c: ton 0.1478, ton ctx: 0.0000, ton tgt: 0.1504, diss raw:    NaN, diss ctx:    NaN
-   700.00c: ton 0.1368, ton ctx: 0.0000, ton tgt: 0.1334, diss raw:    NaN, diss ctx:    NaN
-  1100.00c: ton 0.1324, ton ctx: 0.0000, ton tgt: 0.1270, diss raw:    NaN, diss ctx:    NaN
-  1400.00c: ton 0.1378, ton ctx: 0.0000, ton tgt: 0.1351, diss raw:    NaN, diss ctx:    NaN
-  1800.00c: ton 0.1340, ton ctx: 0.0000, ton tgt: 0.1296, diss raw:    NaN, diss ctx:    NaN
-  2100.00c: ton 0.1501, ton ctx: 0.0000, ton tgt: 0.1540, diss raw:    NaN, diss ctx:    NaN
+     0.00c: ton 0.1611, ton ctx: 0.0000, ton tgt: 0.1705, diss raw: 0.0748, diss ctx: 0.0748
+   400.00c: ton 0.1478, ton ctx: 0.0000, ton tgt: 0.1504, diss raw: 0.0724, diss ctx: 0.0718
+   700.00c: ton 0.1368, ton ctx: 0.0000, ton tgt: 0.1334, diss raw: 0.0605, diss ctx: 0.0606
+  1100.00c: ton 0.1324, ton ctx: 0.0000, ton tgt: 0.1270, diss raw: 0.0566, diss ctx: 0.0570
+  1400.00c: ton 0.1378, ton ctx: 0.0000, ton tgt: 0.1351, diss raw: 0.0529, diss ctx: 0.0530
+  1800.00c: ton 0.1340, ton ctx: 0.0000, ton tgt: 0.1296, diss raw: 0.0465, diss ctx: 0.0467
+  2100.00c: ton 0.1501, ton ctx: 0.0000, ton tgt: 0.1540, diss raw: 0.0470, diss ctx: 0.0467
 Diss: 0.4107
 2.5s: [
     Dissonance {
@@ -35,17 +35,54 @@ Diss: 0.4107
         ],
     },
 ]
+Top 4 likelihood trees:
+ -> likelihood 1.1383 (complexity 0.3724):
+C4
+├── G4
+├── B4
+└── D5
+    ├── E4
+    ├── F#5
+    └── A5
+
+ -> likelihood 1.1304 (complexity 0.4305):
+C4
+├── E4
+├── G4
+│   ├── D5
+│   ├── F#5
+│   └── A5
+└── B4
+
+ -> likelihood 1.0836 (complexity 0.4062):
+E4
+├── C4
+│   ├── G4
+│   ├── D5
+│   └── A5
+├── B4
+└── F#5
+
+ -> likelihood 1.0677 (complexity 0.4090):
+C4
+├── E4
+│   ├── B4
+│   ├── F#5
+│   └── A5
+├── G4
+└── D5
+
 
 ============  Graph diss: Cmaj13#11 with C context  =====================
 
 Iteration 1/1
-     0.00c: ton 0.2953, ton ctx: 0.2000, ton tgt: 0.3196, diss raw:    NaN, diss ctx:    NaN
-   400.00c: ton 0.1233, ton ctx: 0.1000, ton tgt: 0.1224, diss raw:    NaN, diss ctx:    NaN
-   700.00c: ton 0.1152, ton ctx: 0.1000, ton tgt: 0.1100, diss raw:    NaN, diss ctx:    NaN
-  1100.00c: ton 0.1121, ton ctx: 0.1000, ton tgt: 0.1052, diss raw:    NaN, diss ctx:    NaN
-  1400.00c: ton 0.1159, ton ctx: 0.1000, ton tgt: 0.1110, diss raw:    NaN, diss ctx:    NaN
-  1800.00c: ton 0.1135, ton ctx: 0.1000, ton tgt: 0.1073, diss raw:    NaN, diss ctx:    NaN
-  2100.00c: ton 0.1247, ton ctx: 0.1000, ton tgt: 0.1246, diss raw:    NaN, diss ctx:    NaN
+     0.00c: ton 0.2953, ton ctx: 0.2000, ton tgt: 0.3196, diss raw: 0.1381, diss ctx: 0.2145
+   400.00c: ton 0.1233, ton ctx: 0.1000, ton tgt: 0.1224, diss raw: 0.0590, diss ctx: 0.0428
+   700.00c: ton 0.1152, ton ctx: 0.1000, ton tgt: 0.1100, diss raw: 0.0498, diss ctx: 0.0371
+  1100.00c: ton 0.1121, ton ctx: 0.1000, ton tgt: 0.1052, diss raw: 0.0468, diss ctx: 0.0354
+  1400.00c: ton 0.1159, ton ctx: 0.1000, ton tgt: 0.1110, diss raw: 0.0433, diss ctx: 0.0322
+  1800.00c: ton 0.1135, ton ctx: 0.1000, ton tgt: 0.1073, diss raw: 0.0384, diss ctx: 0.0288
+  2100.00c: ton 0.1247, ton ctx: 0.1000, ton tgt: 0.1246, diss raw: 0.0380, diss ctx: 0.0275
 Diss: 0.4183
 2.5s: [
     Dissonance {
@@ -70,17 +107,54 @@ Diss: 0.4183
         ],
     },
 ]
+Top 4 likelihood trees:
+ -> likelihood 2.3942 (complexity 0.3724):
+C4
+├── G4
+├── B4
+└── D5
+    ├── E4
+    ├── F#5
+    └── A5
+
+ -> likelihood 2.3758 (complexity 0.4305):
+C4
+├── E4
+├── G4
+│   ├── D5
+│   ├── F#5
+│   └── A5
+└── B4
+
+ -> likelihood 2.2478 (complexity 0.4090):
+C4
+├── E4
+│   ├── B4
+│   ├── F#5
+│   └── A5
+├── G4
+└── D5
+
+ -> likelihood 2.2422 (complexity 0.3800):
+C4
+├── G4
+│   ├── E4
+│   ├── F#5
+│   └── A5
+├── B4
+└── D5
+
 
 ============  Graph diss: Cmaj13#11 with E context  =====================
 
 Iteration 1/1
-     0.00c: ton 0.1370, ton ctx: 0.1000, ton tgt: 0.1434, diss raw:    NaN, diss ctx:    NaN
-   400.00c: ton 0.2575, ton ctx: 0.2000, ton tgt: 0.2615, diss raw:    NaN, diss ctx:    NaN
-   700.00c: ton 0.1199, ton ctx: 0.1000, ton tgt: 0.1172, diss raw:    NaN, diss ctx:    NaN
-  1100.00c: ton 0.1171, ton ctx: 0.1000, ton tgt: 0.1129, diss raw:    NaN, diss ctx:    NaN
-  1400.00c: ton 0.1205, ton ctx: 0.1000, ton tgt: 0.1181, diss raw:    NaN, diss ctx:    NaN
-  1800.00c: ton 0.1183, ton ctx: 0.1000, ton tgt: 0.1147, diss raw:    NaN, diss ctx:    NaN
-  2100.00c: ton 0.1297, ton ctx: 0.1000, ton tgt: 0.1323, diss raw:    NaN, diss ctx:    NaN
+     0.00c: ton 0.1370, ton ctx: 0.1000, ton tgt: 0.1434, diss raw: 0.0632, diss ctx: 0.0512
+   400.00c: ton 0.2575, ton ctx: 0.2000, ton tgt: 0.2615, diss raw: 0.1246, diss ctx: 0.1847
+   700.00c: ton 0.1199, ton ctx: 0.1000, ton tgt: 0.1172, diss raw: 0.0532, diss ctx: 0.0444
+  1100.00c: ton 0.1171, ton ctx: 0.1000, ton tgt: 0.1129, diss raw: 0.0503, diss ctx: 0.0424
+  1400.00c: ton 0.1205, ton ctx: 0.1000, ton tgt: 0.1181, diss raw: 0.0463, diss ctx: 0.0386
+  1800.00c: ton 0.1183, ton ctx: 0.1000, ton tgt: 0.1147, diss raw: 0.0412, diss ctx: 0.0346
+  2100.00c: ton 0.1297, ton ctx: 0.1000, ton tgt: 0.1323, diss raw: 0.0404, diss ctx: 0.0330
 Diss: 0.4290
 2.5s: [
     Dissonance {
@@ -105,17 +179,54 @@ Diss: 0.4290
         ],
     },
 ]
+Top 4 likelihood trees:
+ -> likelihood 2.2914 (complexity 0.4062):
+E4
+├── C4
+│   ├── G4
+│   ├── D5
+│   └── A5
+├── B4
+└── F#5
+
+ -> likelihood 2.0637 (complexity 0.4146):
+E4
+├── C4
+│   ├── G4
+│   └── D5
+│       └── A5
+├── B4
+└── F#5
+
+ -> likelihood 2.0611 (complexity 0.5019):
+E4
+├── C4
+├── G4
+│   ├── D5
+│   ├── F#5
+│   └── A5
+└── B4
+
+ -> likelihood 2.0453 (complexity 0.4128):
+E4
+├── C4
+│   ├── G4
+│   │   └── A5
+│   └── D5
+├── B4
+└── F#5
+
 
 ============  Graph diss: Cmaj13#11 with F# context  =====================
 
-Iteration 1/5
-     0.00c: ton 0.1449, ton ctx: 0.1000, ton tgt: 0.1556, diss raw:    NaN, diss ctx:    NaN
-   400.00c: ton 0.1339, ton ctx: 0.1000, ton tgt: 0.1386, diss raw:    NaN, diss ctx:    NaN
-   700.00c: ton 0.1242, ton ctx: 0.1000, ton tgt: 0.1238, diss raw:    NaN, diss ctx:    NaN
-  1100.00c: ton 0.1203, ton ctx: 0.1000, ton tgt: 0.1178, diss raw:    NaN, diss ctx:    NaN
-  1400.00c: ton 0.1251, ton ctx: 0.1000, ton tgt: 0.1251, diss raw:    NaN, diss ctx:    NaN
-  1800.00c: ton 0.2147, ton ctx: 0.2000, ton tgt: 0.1958, diss raw:    NaN, diss ctx:    NaN
-  2100.00c: ton 0.1368, ton ctx: 0.1000, ton tgt: 0.1432, diss raw:    NaN, diss ctx:    NaN
+Iteration 1/1
+     0.00c: ton 0.1449, ton ctx: 0.1000, ton tgt: 0.1556, diss raw: 0.0683, diss ctx: 0.0606
+   400.00c: ton 0.1339, ton ctx: 0.1000, ton tgt: 0.1386, diss raw: 0.0667, diss ctx: 0.0595
+   700.00c: ton 0.1242, ton ctx: 0.1000, ton tgt: 0.1238, diss raw: 0.0561, diss ctx: 0.0508
+  1100.00c: ton 0.1203, ton ctx: 0.1000, ton tgt: 0.1178, diss raw: 0.0525, diss ctx: 0.0481
+  1400.00c: ton 0.1251, ton ctx: 0.1000, ton tgt: 0.1251, diss raw: 0.0490, diss ctx: 0.0444
+  1800.00c: ton 0.2147, ton ctx: 0.2000, ton tgt: 0.1958, diss raw: 0.0704, diss ctx: 0.0998
+  2100.00c: ton 0.1368, ton ctx: 0.1000, ton tgt: 0.1432, diss raw: 0.0437, diss ctx: 0.0389
 Diss: 0.4021
 2.5s: [
     Dissonance {
@@ -140,145 +251,54 @@ Diss: 0.4021
         ],
     },
 ]
-Iteration 2/5
-     0.00c: ton 0.1652, ton ctx: 0.1449, ton tgt: 0.1760, diss raw:    NaN, diss ctx:    NaN
-   400.00c: ton 0.1381, ton ctx: 0.1339, ton tgt: 0.1404, diss raw:    NaN, diss ctx:    NaN
-   700.00c: ton 0.1200, ton ctx: 0.1242, ton tgt: 0.1177, diss raw:    NaN, diss ctx:    NaN
-  1100.00c: ton 0.1139, ton ctx: 0.1203, ton tgt: 0.1104, diss raw:    NaN, diss ctx:    NaN
-  1400.00c: ton 0.1212, ton ctx: 0.1251, ton tgt: 0.1192, diss raw:    NaN, diss ctx:    NaN
-  1800.00c: ton 0.1990, ton ctx: 0.2147, ton tgt: 0.1906, diss raw:    NaN, diss ctx:    NaN
-  2100.00c: ton 0.1427, ton ctx: 0.1368, ton tgt: 0.1458, diss raw:    NaN, diss ctx:    NaN
-Diss: 0.4037
-5s: [
-    Dissonance {
-        dissonance: 0.4037470282314765,
-        tonicity_target: [
-            0.1759909255536277,
-            0.1403635202844395,
-            0.11767352188091734,
-            0.11039736903809359,
-            0.11917391052295445,
-            0.19061316744990525,
-            0.14578758527006155,
-        ],
-        tonicity_context: [
-            0.1651674632766719,
-            0.1381043459292492,
-            0.11995566818413911,
-            0.11385884044355178,
-            0.12123823978913628,
-            0.19900815136890398,
-            0.1426672910083478,
-        ],
-    },
-]
-Iteration 3/5
-     0.00c: ton 0.1977, ton ctx: 0.1652, ton tgt: 0.2151, diss raw:    NaN, diss ctx:    NaN
-   400.00c: ton 0.1403, ton ctx: 0.1381, ton tgt: 0.1415, diss raw:    NaN, diss ctx:    NaN
-   700.00c: ton 0.1150, ton ctx: 0.1200, ton tgt: 0.1123, diss raw:    NaN, diss ctx:    NaN
-  1100.00c: ton 0.1080, ton ctx: 0.1139, ton tgt: 0.1048, diss raw:    NaN, diss ctx:    NaN
-  1400.00c: ton 0.1164, ton ctx: 0.1212, ton tgt: 0.1138, diss raw:    NaN, diss ctx:    NaN
-  1800.00c: ton 0.1774, ton ctx: 0.1990, ton tgt: 0.1659, diss raw:    NaN, diss ctx:    NaN
-  2100.00c: ton 0.1453, ton ctx: 0.1427, ton tgt: 0.1466, diss raw:    NaN, diss ctx:    NaN
-Diss: 0.4068
-7.5s: [
-    Dissonance {
-        dissonance: 0.4068297095945362,
-        tonicity_target: [
-            0.2150949994308788,
-            0.14150539618700597,
-            0.1123143559234254,
-            0.10480377158784586,
-            0.1137815456819802,
-            0.16585335734408996,
-            0.146646573844771,
-        ],
-        tonicity_context: [
-            0.19768634400659393,
-            0.14031952328842986,
-            0.11497871676280826,
-            0.10796107887145169,
-            0.11638153415156645,
-            0.17741371920649923,
-            0.14525908371265053,
-        ],
-    },
-]
-Iteration 4/5
-     0.00c: ton 0.2458, ton ctx: 0.1977, ton tgt: 0.2716, diss raw:    NaN, diss ctx:    NaN
-   400.00c: ton 0.1389, ton ctx: 0.1403, ton tgt: 0.1382, diss raw:    NaN, diss ctx:    NaN
-   700.00c: ton 0.1086, ton ctx: 0.1150, ton tgt: 0.1052, diss raw:    NaN, diss ctx:    NaN
-  1100.00c: ton 0.1017, ton ctx: 0.1080, ton tgt: 0.0984, diss raw:    NaN, diss ctx:    NaN
-  1400.00c: ton 0.1099, ton ctx: 0.1164, ton tgt: 0.1065, diss raw:    NaN, diss ctx:    NaN
-  1800.00c: ton 0.1522, ton ctx: 0.1774, ton tgt: 0.1387, diss raw:    NaN, diss ctx:    NaN
-  2100.00c: ton 0.1428, ton ctx: 0.1453, ton tgt: 0.1414, diss raw:    NaN, diss ctx:    NaN
-Diss: 0.4116
-10s: [
-    Dissonance {
-        dissonance: 0.41156882702461756,
-        tonicity_target: [
-            0.2715690407578233,
-            0.13819849496520506,
-            0.10524406489151746,
-            0.09836674643328626,
-            0.10648306726986763,
-            0.1387252215246251,
-            0.14141336415767317,
-        ],
-        tonicity_context: [
-            0.24580773730422362,
-            0.1389380518123552,
-            0.10863832812091583,
-            0.10171208330162675,
-            0.10993444926156004,
-            0.15221506654615366,
-            0.14275428365316492,
-        ],
-    },
-]
-Iteration 5/5
-     0.00c: ton 0.2851, ton ctx: 0.2458, ton tgt: 0.3061, diss raw:    NaN, diss ctx:    NaN
-   400.00c: ton 0.1376, ton ctx: 0.1389, ton tgt: 0.1369, diss raw:    NaN, diss ctx:    NaN
-   700.00c: ton 0.1044, ton ctx: 0.1086, ton tgt: 0.1021, diss raw:    NaN, diss ctx:    NaN
-  1100.00c: ton 0.0980, ton ctx: 0.1017, ton tgt: 0.0960, diss raw:    NaN, diss ctx:    NaN
-  1400.00c: ton 0.1054, ton ctx: 0.1099, ton tgt: 0.1030, diss raw:    NaN, diss ctx:    NaN
-  1800.00c: ton 0.1306, ton ctx: 0.1522, ton tgt: 0.1190, diss raw:    NaN, diss ctx:    NaN
-  2100.00c: ton 0.1390, ton ctx: 0.1428, ton tgt: 0.1369, diss raw:    NaN, diss ctx:    NaN
-Diss: 0.4159
-12.5s: [
-    Dissonance {
-        dissonance: 0.4158947349525262,
-        tonicity_target: [
-            0.3061063050378346,
-            0.1369394344425686,
-            0.10206187325558738,
-            0.09603624243569935,
-            0.10295096681921949,
-            0.11896824265393385,
-            0.1369369353551558,
-        ],
-        tonicity_context: [
-            0.285081494500215,
-            0.1376363092294226,
-            0.1043549412794182,
-            0.0980152857750868,
-            0.10538595658368057,
-            0.13056069334695253,
-            0.1389653192852241,
-        ],
-    },
-]
+Top 4 likelihood trees:
+ -> likelihood 1.5115 (complexity 0.3776):
+F#5
+├── C4
+│   ├── G4
+│   ├── B4
+│   └── D5
+├── E4
+└── A5
+
+ -> likelihood 1.4853 (complexity 0.3612):
+F#5
+├── C4
+│   ├── G4
+│   ├── B4
+│   └── A5
+├── E4
+└── D5
+
+ -> likelihood 1.4422 (complexity 0.4502):
+F#5
+├── C4
+├── G4
+└── D5
+    ├── E4
+    ├── B4
+    └── A5
+
+ -> likelihood 1.4173 (complexity 0.3649):
+F#5
+├── C4
+├── E4
+└── G4
+    ├── B4
+    ├── D5
+    └── A5
+
 
 ============  Graph diss: Cmin13 with no context  =====================
 
 Iteration 1/1
-     0.00c: ton 0.2687, ton ctx: 0.2000, ton tgt: 0.2787, diss raw:    NaN, diss ctx:    NaN
-   300.00c: ton 0.1319, ton ctx: 0.1000, ton tgt: 0.1357, diss raw:    NaN, diss ctx:    NaN
-   700.00c: ton 0.1159, ton ctx: 0.1000, ton tgt: 0.1110, diss raw:    NaN, diss ctx:    NaN
-  1000.00c: ton 0.1211, ton ctx: 0.1000, ton tgt: 0.1191, diss raw:    NaN, diss ctx:    NaN
-  1400.00c: ton 0.1144, ton ctx: 0.1000, ton tgt: 0.1087, diss raw:    NaN, diss ctx:    NaN
-  1700.00c: ton 0.1304, ton ctx: 0.1000, ton tgt: 0.1333, diss raw:    NaN, diss ctx:    NaN
-  2100.00c: ton 0.1175, ton ctx: 0.1000, ton tgt: 0.1135, diss raw:    NaN, diss ctx:    NaN
+     0.00c: ton 0.2687, ton ctx: 0.2000, ton tgt: 0.2787, diss raw: 0.1228, diss ctx: 0.1847
+   300.00c: ton 0.1319, ton ctx: 0.1000, ton tgt: 0.1357, diss raw: 0.0663, diss ctx: 0.0522
+   700.00c: ton 0.1159, ton ctx: 0.1000, ton tgt: 0.1110, diss raw: 0.0498, diss ctx: 0.0408
+  1000.00c: ton 0.1211, ton ctx: 0.1000, ton tgt: 0.1191, diss raw: 0.0516, diss ctx: 0.0416
+  1400.00c: ton 0.1144, ton ctx: 0.1000, ton tgt: 0.1087, diss raw: 0.0432, diss ctx: 0.0356
+  1700.00c: ton 0.1304, ton ctx: 0.1000, ton tgt: 0.1333, diss raw: 0.0454, diss ctx: 0.0358
+  2100.00c: ton 0.1175, ton ctx: 0.1000, ton tgt: 0.1135, diss raw: 0.0360, diss ctx: 0.0293
 Diss: 0.4200
 2.5s: [
     Dissonance {
@@ -303,17 +323,54 @@ Diss: 0.4200
         ],
     },
 ]
+Top 4 likelihood trees:
+ -> likelihood 2.3013 (complexity 0.4302):
+C4
+├── Eb4
+│   ├── Bb4
+│   ├── F5
+│   └── A5
+├── G4
+└── D5
+
+ -> likelihood 2.2048 (complexity 0.4154):
+C4
+├── Eb4
+│   ├── Bb4
+│   ├── D5
+│   └── F5
+├── G4
+└── A5
+
+ -> likelihood 2.0830 (complexity 0.4189):
+C4
+├── Eb4
+├── G4
+└── D5
+    ├── Bb4
+    ├── F5
+    └── A5
+
+ -> likelihood 2.0745 (complexity 0.4325):
+C4
+├── Eb4
+│   ├── Bb4
+│   │   └── F5
+│   └── A5
+├── G4
+└── D5
+
 
 ============  Graph diss: Cmin13 with C context  =====================
 
 Iteration 1/1
-     0.00c: ton 0.2687, ton ctx: 0.2000, ton tgt: 0.2787, diss raw:    NaN, diss ctx:    NaN
-   300.00c: ton 0.1319, ton ctx: 0.1000, ton tgt: 0.1357, diss raw:    NaN, diss ctx:    NaN
-   700.00c: ton 0.1159, ton ctx: 0.1000, ton tgt: 0.1110, diss raw:    NaN, diss ctx:    NaN
-  1000.00c: ton 0.1211, ton ctx: 0.1000, ton tgt: 0.1191, diss raw:    NaN, diss ctx:    NaN
-  1400.00c: ton 0.1144, ton ctx: 0.1000, ton tgt: 0.1087, diss raw:    NaN, diss ctx:    NaN
-  1700.00c: ton 0.1304, ton ctx: 0.1000, ton tgt: 0.1333, diss raw:    NaN, diss ctx:    NaN
-  2100.00c: ton 0.1175, ton ctx: 0.1000, ton tgt: 0.1135, diss raw:    NaN, diss ctx:    NaN
+     0.00c: ton 0.2687, ton ctx: 0.2000, ton tgt: 0.2787, diss raw: 0.1228, diss ctx: 0.1847
+   300.00c: ton 0.1319, ton ctx: 0.1000, ton tgt: 0.1357, diss raw: 0.0663, diss ctx: 0.0522
+   700.00c: ton 0.1159, ton ctx: 0.1000, ton tgt: 0.1110, diss raw: 0.0498, diss ctx: 0.0408
+  1000.00c: ton 0.1211, ton ctx: 0.1000, ton tgt: 0.1191, diss raw: 0.0516, diss ctx: 0.0416
+  1400.00c: ton 0.1144, ton ctx: 0.1000, ton tgt: 0.1087, diss raw: 0.0432, diss ctx: 0.0356
+  1700.00c: ton 0.1304, ton ctx: 0.1000, ton tgt: 0.1333, diss raw: 0.0454, diss ctx: 0.0358
+  2100.00c: ton 0.1175, ton ctx: 0.1000, ton tgt: 0.1135, diss raw: 0.0360, diss ctx: 0.0293
 Diss: 0.4200
 2.5s: [
     Dissonance {
@@ -338,17 +395,54 @@ Diss: 0.4200
         ],
     },
 ]
+Top 4 likelihood trees:
+ -> likelihood 2.3013 (complexity 0.4302):
+C4
+├── Eb4
+│   ├── Bb4
+│   ├── F5
+│   └── A5
+├── G4
+└── D5
+
+ -> likelihood 2.2048 (complexity 0.4154):
+C4
+├── Eb4
+│   ├── Bb4
+│   ├── D5
+│   └── F5
+├── G4
+└── A5
+
+ -> likelihood 2.0830 (complexity 0.4189):
+C4
+├── Eb4
+├── G4
+└── D5
+    ├── Bb4
+    ├── F5
+    └── A5
+
+ -> likelihood 2.0745 (complexity 0.4325):
+C4
+├── Eb4
+│   ├── Bb4
+│   │   └── F5
+│   └── A5
+├── G4
+└── D5
+
 
 ============  Graph diss: Cmin13 with Eb context  =====================
 
 Iteration 1/1
-     0.00c: ton 0.1273, ton ctx: 0.1000, ton tgt: 0.1286, diss raw:    NaN, diss ctx:    NaN
-   300.00c: ton 0.2788, ton ctx: 0.2000, ton tgt: 0.2942, diss raw:    NaN, diss ctx:    NaN
-   700.00c: ton 0.1144, ton ctx: 0.1000, ton tgt: 0.1087, diss raw:    NaN, diss ctx:    NaN
-  1000.00c: ton 0.1205, ton ctx: 0.1000, ton tgt: 0.1181, diss raw:    NaN, diss ctx:    NaN
-  1400.00c: ton 0.1131, ton ctx: 0.1000, ton tgt: 0.1067, diss raw:    NaN, diss ctx:    NaN
-  1700.00c: ton 0.1297, ton ctx: 0.1000, ton tgt: 0.1322, diss raw:    NaN, diss ctx:    NaN
-  2100.00c: ton 0.1162, ton ctx: 0.1000, ton tgt: 0.1115, diss raw:    NaN, diss ctx:    NaN
+     0.00c: ton 0.1273, ton ctx: 0.1000, ton tgt: 0.1286, diss raw: 0.0577, diss ctx: 0.0443
+   300.00c: ton 0.2788, ton ctx: 0.2000, ton tgt: 0.2942, diss raw: 0.1418, diss ctx: 0.2161
+   700.00c: ton 0.1144, ton ctx: 0.1000, ton tgt: 0.1087, diss raw: 0.0489, diss ctx: 0.0390
+  1000.00c: ton 0.1205, ton ctx: 0.1000, ton tgt: 0.1181, diss raw: 0.0514, diss ctx: 0.0401
+  1400.00c: ton 0.1131, ton ctx: 0.1000, ton tgt: 0.1067, diss raw: 0.0426, diss ctx: 0.0342
+  1700.00c: ton 0.1297, ton ctx: 0.1000, ton tgt: 0.1322, diss raw: 0.0453, diss ctx: 0.0346
+  2100.00c: ton 0.1162, ton ctx: 0.1000, ton tgt: 0.1115, diss raw: 0.0355, diss ctx: 0.0281
 Diss: 0.4362
 2.5s: [
     Dissonance {
@@ -373,17 +467,54 @@ Diss: 0.4362
         ],
     },
 ]
+Top 4 likelihood trees:
+ -> likelihood 2.4048 (complexity 0.4248):
+Eb4
+├── C4
+│   ├── G4
+│   ├── D5
+│   └── A5
+├── Bb4
+└── F5
+
+ -> likelihood 2.3543 (complexity 0.4348):
+Eb4
+├── G4
+├── Bb4
+│   ├── C4
+│   ├── F5
+│   └── A5
+└── D5
+
+ -> likelihood 2.2157 (complexity 0.4557):
+Eb4
+├── C4
+├── Bb4
+│   ├── G4
+│   ├── F5
+│   └── A5
+└── D5
+
+ -> likelihood 2.2013 (complexity 0.4489):
+Eb4
+├── G4
+├── Bb4
+└── D5
+    ├── C4
+    ├── F5
+    └── A5
+
 
 ============  Graph diss: Cmin13 with A context  =====================
 
 Iteration 1/1
-     0.00c: ton 0.1371, ton ctx: 0.1000, ton tgt: 0.1435, diss raw:    NaN, diss ctx:    NaN
-   300.00c: ton 0.1400, ton ctx: 0.1000, ton tgt: 0.1480, diss raw:    NaN, diss ctx:    NaN
-   700.00c: ton 0.1209, ton ctx: 0.1000, ton tgt: 0.1187, diss raw:    NaN, diss ctx:    NaN
-  1000.00c: ton 0.1275, ton ctx: 0.1000, ton tgt: 0.1288, diss raw:    NaN, diss ctx:    NaN
-  1400.00c: ton 0.1192, ton ctx: 0.1000, ton tgt: 0.1161, diss raw:    NaN, diss ctx:    NaN
-  1700.00c: ton 0.1385, ton ctx: 0.1000, ton tgt: 0.1458, diss raw:    NaN, diss ctx:    NaN
-  2100.00c: ton 0.2169, ton ctx: 0.2000, ton tgt: 0.1992, diss raw:    NaN, diss ctx:    NaN
+     0.00c: ton 0.1371, ton ctx: 0.1000, ton tgt: 0.1435, diss raw: 0.0641, diss ctx: 0.0568
+   300.00c: ton 0.1400, ton ctx: 0.1000, ton tgt: 0.1480, diss raw: 0.0720, diss ctx: 0.0637
+   700.00c: ton 0.1209, ton ctx: 0.1000, ton tgt: 0.1187, diss raw: 0.0533, diss ctx: 0.0486
+  1000.00c: ton 0.1275, ton ctx: 0.1000, ton tgt: 0.1288, diss raw: 0.0560, diss ctx: 0.0502
+  1400.00c: ton 0.1192, ton ctx: 0.1000, ton tgt: 0.1161, diss raw: 0.0463, diss ctx: 0.0425
+  1700.00c: ton 0.1385, ton ctx: 0.1000, ton tgt: 0.1458, diss raw: 0.0498, diss ctx: 0.0441
+  2100.00c: ton 0.2169, ton ctx: 0.2000, ton tgt: 0.1992, diss raw: 0.0634, diss ctx: 0.0900
 Diss: 0.3959
 2.5s: [
     Dissonance {
@@ -408,17 +539,54 @@ Diss: 0.3959
         ],
     },
 ]
+Top 4 likelihood trees:
+ -> likelihood 1.4833 (complexity 0.3332):
+A5
+├── C4
+│   ├── G4
+│   ├── Bb4
+│   └── D5
+├── Eb4
+└── F5
+
+ -> likelihood 1.4828 (complexity 0.2792):
+A5
+├── C4
+├── Eb4
+│   ├── Bb4
+│   ├── D5
+│   └── F5
+└── G4
+
+ -> likelihood 1.4764 (complexity 0.3550):
+A5
+├── C4
+├── Eb4
+│   ├── G4
+│   ├── Bb4
+│   └── D5
+└── F5
+
+ -> likelihood 1.4047 (complexity 0.3692):
+A5
+├── Eb4
+├── G4
+└── Bb4
+    ├── C4
+    ├── D5
+    └── F5
+
 
 ============  Graph diss: Cm11b5b9b13 with no context  =====================
 
 Iteration 1/1
-     0.00c: ton 0.1203, ton ctx: 0.1000, ton tgt: 0.1178, diss raw:    NaN, diss ctx:    NaN
-   300.00c: ton 0.1284, ton ctx: 0.1000, ton tgt: 0.1302, diss raw:    NaN, diss ctx:    NaN
-   600.00c: ton 0.1276, ton ctx: 0.1000, ton tgt: 0.1289, diss raw:    NaN, diss ctx:    NaN
-  1000.00c: ton 0.1190, ton ctx: 0.1000, ton tgt: 0.1159, diss raw:    NaN, diss ctx:    NaN
-  1300.00c: ton 0.1197, ton ctx: 0.1000, ton tgt: 0.1169, diss raw:    NaN, diss ctx:    NaN
-  1700.00c: ton 0.1260, ton ctx: 0.1000, ton tgt: 0.1265, diss raw:    NaN, diss ctx:    NaN
-  2000.00c: ton 0.2590, ton ctx: 0.2000, ton tgt: 0.2638, diss raw:    NaN, diss ctx:    NaN
+     0.00c: ton 0.1203, ton ctx: 0.1000, ton tgt: 0.1178, diss raw: 0.0585, diss ctx: 0.0487
+   300.00c: ton 0.1284, ton ctx: 0.1000, ton tgt: 0.1302, diss raw: 0.0653, diss ctx: 0.0533
+   600.00c: ton 0.1276, ton ctx: 0.1000, ton tgt: 0.1289, diss raw: 0.0650, diss ctx: 0.0531
+  1000.00c: ton 0.1190, ton ctx: 0.1000, ton tgt: 0.1159, diss raw: 0.0509, diss ctx: 0.0425
+  1300.00c: ton 0.1197, ton ctx: 0.1000, ton tgt: 0.1169, diss raw: 0.0500, diss ctx: 0.0417
+  1700.00c: ton 0.1260, ton ctx: 0.1000, ton tgt: 0.1265, diss raw: 0.0446, diss ctx: 0.0366
+  2000.00c: ton 0.2590, ton ctx: 0.2000, ton tgt: 0.2638, diss raw: 0.0857, diss ctx: 0.1274
 Diss: 0.4033
 2.5s: [
     Dissonance {
@@ -443,17 +611,54 @@ Diss: 0.4033
         ],
     },
 ]
+Top 4 likelihood trees:
+ -> likelihood 2.1619 (complexity 0.3396):
+Ab5
+├── C4
+├── Eb4
+└── Bb4
+    ├── Gb4
+    ├── Db5
+    └── F5
+
+ -> likelihood 2.0730 (complexity 0.3140):
+Ab5
+├── C4
+├── Eb4
+│   ├── Gb4
+│   ├── Db5
+│   └── F5
+└── Bb4
+
+ -> likelihood 2.0612 (complexity 0.3312):
+Ab5
+├── C4
+├── Eb4
+└── Bb4
+    ├── Gb4
+    │   └── Db5
+    └── F5
+
+ -> likelihood 2.0578 (complexity 0.3428):
+Ab5
+├── Eb4
+├── Gb4
+└── Bb4
+    ├── C4
+    ├── Db5
+    └── F5
+
 
 ============  Graph diss: Cm11b5b9b13 with Ab context  =====================
 
 Iteration 1/1
-     0.00c: ton 0.1203, ton ctx: 0.1000, ton tgt: 0.1178, diss raw:    NaN, diss ctx:    NaN
-   300.00c: ton 0.1284, ton ctx: 0.1000, ton tgt: 0.1302, diss raw:    NaN, diss ctx:    NaN
-   600.00c: ton 0.1276, ton ctx: 0.1000, ton tgt: 0.1289, diss raw:    NaN, diss ctx:    NaN
-  1000.00c: ton 0.1190, ton ctx: 0.1000, ton tgt: 0.1159, diss raw:    NaN, diss ctx:    NaN
-  1300.00c: ton 0.1197, ton ctx: 0.1000, ton tgt: 0.1169, diss raw:    NaN, diss ctx:    NaN
-  1700.00c: ton 0.1260, ton ctx: 0.1000, ton tgt: 0.1265, diss raw:    NaN, diss ctx:    NaN
-  2000.00c: ton 0.2590, ton ctx: 0.2000, ton tgt: 0.2638, diss raw:    NaN, diss ctx:    NaN
+     0.00c: ton 0.1203, ton ctx: 0.1000, ton tgt: 0.1178, diss raw: 0.0585, diss ctx: 0.0487
+   300.00c: ton 0.1284, ton ctx: 0.1000, ton tgt: 0.1302, diss raw: 0.0653, diss ctx: 0.0533
+   600.00c: ton 0.1276, ton ctx: 0.1000, ton tgt: 0.1289, diss raw: 0.0650, diss ctx: 0.0531
+  1000.00c: ton 0.1190, ton ctx: 0.1000, ton tgt: 0.1159, diss raw: 0.0509, diss ctx: 0.0425
+  1300.00c: ton 0.1197, ton ctx: 0.1000, ton tgt: 0.1169, diss raw: 0.0500, diss ctx: 0.0417
+  1700.00c: ton 0.1260, ton ctx: 0.1000, ton tgt: 0.1265, diss raw: 0.0446, diss ctx: 0.0366
+  2000.00c: ton 0.2590, ton ctx: 0.2000, ton tgt: 0.2638, diss raw: 0.0857, diss ctx: 0.1274
 Diss: 0.4033
 2.5s: [
     Dissonance {
@@ -478,17 +683,54 @@ Diss: 0.4033
         ],
     },
 ]
+Top 4 likelihood trees:
+ -> likelihood 2.1619 (complexity 0.3396):
+Ab5
+├── C4
+├── Eb4
+└── Bb4
+    ├── Gb4
+    ├── Db5
+    └── F5
+
+ -> likelihood 2.0730 (complexity 0.3140):
+Ab5
+├── C4
+├── Eb4
+│   ├── Gb4
+│   ├── Db5
+│   └── F5
+└── Bb4
+
+ -> likelihood 2.0612 (complexity 0.3312):
+Ab5
+├── C4
+├── Eb4
+└── Bb4
+    ├── Gb4
+    │   └── Db5
+    └── F5
+
+ -> likelihood 2.0578 (complexity 0.3428):
+Ab5
+├── Eb4
+├── Gb4
+└── Bb4
+    ├── C4
+    ├── Db5
+    └── F5
+
 
 ============  Graph diss: Cm11b5b9b13 with Eb context  =====================
 
 Iteration 1/1
-     0.00c: ton 0.1199, ton ctx: 0.1000, ton tgt: 0.1172, diss raw:    NaN, diss ctx:    NaN
-   300.00c: ton 0.2571, ton ctx: 0.2000, ton tgt: 0.2609, diss raw:    NaN, diss ctx:    NaN
-   600.00c: ton 0.1274, ton ctx: 0.1000, ton tgt: 0.1288, diss raw:    NaN, diss ctx:    NaN
-  1000.00c: ton 0.1198, ton ctx: 0.1000, ton tgt: 0.1171, diss raw:    NaN, diss ctx:    NaN
-  1300.00c: ton 0.1200, ton ctx: 0.1000, ton tgt: 0.1172, diss raw:    NaN, diss ctx:    NaN
-  1700.00c: ton 0.1261, ton ctx: 0.1000, ton tgt: 0.1267, diss raw:    NaN, diss ctx:    NaN
-  2000.00c: ton 0.1296, ton ctx: 0.1000, ton tgt: 0.1321, diss raw:    NaN, diss ctx:    NaN
+     0.00c: ton 0.1199, ton ctx: 0.1000, ton tgt: 0.1172, diss raw: 0.0584, diss ctx: 0.0489
+   300.00c: ton 0.2571, ton ctx: 0.2000, ton tgt: 0.2609, diss raw: 0.1295, diss ctx: 0.1921
+   600.00c: ton 0.1274, ton ctx: 0.1000, ton tgt: 0.1288, diss raw: 0.0651, diss ctx: 0.0535
+  1000.00c: ton 0.1198, ton ctx: 0.1000, ton tgt: 0.1171, diss raw: 0.0515, diss ctx: 0.0431
+  1300.00c: ton 0.1200, ton ctx: 0.1000, ton tgt: 0.1172, diss raw: 0.0502, diss ctx: 0.0420
+  1700.00c: ton 0.1261, ton ctx: 0.1000, ton tgt: 0.1267, diss raw: 0.0448, diss ctx: 0.0369
+  2000.00c: ton 0.1296, ton ctx: 0.1000, ton tgt: 0.1321, diss raw: 0.0431, diss ctx: 0.0353
 Diss: 0.4518
 2.5s: [
     Dissonance {
@@ -513,17 +755,54 @@ Diss: 0.4518
         ],
     },
 ]
+Top 4 likelihood trees:
+ -> likelihood 2.1629 (complexity 0.5131):
+Eb4
+├── C4
+├── Gb4
+│   ├── Db5
+│   ├── F5
+│   └── Ab5
+└── Bb4
+
+ -> likelihood 2.0880 (complexity 0.4442):
+Eb4
+├── C4
+│   ├── Gb4
+│   ├── Db5
+│   └── Ab5
+├── Bb4
+└── F5
+
+ -> likelihood 1.9767 (complexity 0.4908):
+Eb4
+├── C4
+├── Gb4
+└── Bb4
+    ├── Db5
+    ├── F5
+    └── Ab5
+
+ -> likelihood 1.9658 (complexity 0.4221):
+Eb4
+├── C4
+├── Bb4
+└── F5
+    ├── Gb4
+    ├── Db5
+    └── Ab5
+
 
 ============  Graph diss: Cm11b5b9b13 with C context  =====================
 
 Iteration 1/1
-     0.00c: ton 0.2299, ton ctx: 0.2000, ton tgt: 0.2192, diss raw:    NaN, diss ctx:    NaN
-   300.00c: ton 0.1314, ton ctx: 0.1000, ton tgt: 0.1349, diss raw:    NaN, diss ctx:    NaN
-   600.00c: ton 0.1307, ton ctx: 0.1000, ton tgt: 0.1337, diss raw:    NaN, diss ctx:    NaN
-  1000.00c: ton 0.1223, ton ctx: 0.1000, ton tgt: 0.1208, diss raw:    NaN, diss ctx:    NaN
-  1300.00c: ton 0.1233, ton ctx: 0.1000, ton tgt: 0.1224, diss raw:    NaN, diss ctx:    NaN
-  1700.00c: ton 0.1289, ton ctx: 0.1000, ton tgt: 0.1310, diss raw:    NaN, diss ctx:    NaN
-  2000.00c: ton 0.1335, ton ctx: 0.1000, ton tgt: 0.1381, diss raw:    NaN, diss ctx:    NaN
+     0.00c: ton 0.2299, ton ctx: 0.2000, ton tgt: 0.2192, diss raw: 0.1084, diss ctx: 0.1558
+   300.00c: ton 0.1314, ton ctx: 0.1000, ton tgt: 0.1349, diss raw: 0.0679, diss ctx: 0.0592
+   600.00c: ton 0.1307, ton ctx: 0.1000, ton tgt: 0.1337, diss raw: 0.0675, diss ctx: 0.0590
+  1000.00c: ton 0.1223, ton ctx: 0.1000, ton tgt: 0.1208, diss raw: 0.0530, diss ctx: 0.0471
+  1300.00c: ton 0.1233, ton ctx: 0.1000, ton tgt: 0.1224, diss raw: 0.0523, diss ctx: 0.0464
+  1700.00c: ton 0.1289, ton ctx: 0.1000, ton tgt: 0.1310, diss raw: 0.0461, diss ctx: 0.0403
+  2000.00c: ton 0.1335, ton ctx: 0.1000, ton tgt: 0.1381, diss raw: 0.0450, diss ctx: 0.0392
 Diss: 0.4470
 2.5s: [
     Dissonance {
@@ -548,9 +827,46 @@ Diss: 0.4470
         ],
     },
 ]
+Top 4 likelihood trees:
+ -> likelihood 1.5751 (complexity 0.4967):
+C4
+├── Eb4
+│   ├── Bb4
+│   ├── F5
+│   └── Ab5
+├── Gb4
+└── Db5
+
+ -> likelihood 1.5695 (complexity 0.5000):
+C4
+├── Eb4
+├── Gb4
+└── Db5
+    ├── Bb4
+    ├── F5
+    └── Ab5
+
+ -> likelihood 1.5558 (complexity 0.4694):
+C4
+├── Eb4
+│   ├── Bb4
+│   ├── Db5
+│   └── F5
+├── Gb4
+└── Ab5
+
+ -> likelihood 1.5485 (complexity 0.4726):
+C4
+├── Eb4
+├── Gb4
+│   ├── Bb4
+│   ├── Db5
+│   └── F5
+└── Ab5
+
 test polyadic::tests::test_context_effect ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 2.47s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 2.19s
 
 
 running 0 tests
